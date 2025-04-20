@@ -1,0 +1,16 @@
+import json
+import os
+
+PROFILE_FILE = "config/user_profiles.json"
+
+def load_profiles():
+    if os.path.exists(PROFILE_FILE):
+        with open(PROFILE_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_profiles():
+    with open(PROFILE_FILE, "w") as f:
+        json.dump(user_profiles, f)
+
+user_profiles = load_profiles()
