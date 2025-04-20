@@ -38,8 +38,7 @@ async def get_percentage(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_profiles[user_id]["drink_count"] += servings
         if user_profiles[user_id]["start_time"] == 0:
             user_profiles[user_id]["start_time"] = time.time()
-        user_profiles[user_id]["elapsed_time"] = time.time() - user_profiles[user_id]["start_time"]
-        save_profiles()
+        calculate_bac(user_id)
         await update.message.reply_text(f"Lisätty {servings} annosta.")
         return ConversationHandler.END
     except ValueError:
@@ -52,17 +51,18 @@ async def favorite_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
         return
 
-    await update.message.reply_text("Anna lempijuomasi koko ja prosentit (esim. 0.33 4.2):")
+    await update.message.reply_text("Anna lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari):")
     return FAVORITE
 
 async def get_favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
     favorite = update.message.text
-    favorite_size, favorite_percentage = favorite.split()
+    favorite_size, favorite_percentage, favorite_name = favorite.split()
     user_id = str(update.message.from_user.id)
     user_profiles[user_id]["favorite_drink_size"] = favorite_size
     user_profiles[user_id]["favorite_drink_percentage"] = favorite_percentage
+    user_profiles[user_id]["favorite_drink_name"] = favorite_name
     save_profiles()
-    await update.message.reply_text(f"Lempijuomasi on nyt kooltaan {favorite_size} ja prosenteiltaan {favorite_percentage}.")
+    await update.message.reply_text(f"Lempijuomasi on nyt {favorite_name}.")
     return ConversationHandler.END
 
 async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -71,7 +71,7 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
         return
     if user_profiles[user_id]["favorite_drink_size"] == 0:
-        await update.message.reply_text("Et ole vielä määrittänyt lempijuomaasi. Käytä /favorite komentoa ensin.")
+        await update.message.reply_text("Et ole vielä määrittänyt lempijuomaasi. Käytä /favorite_drink komentoa ensin.")
         return
 
     size = user_profiles[user_id]["favorite_drink_size"]
@@ -80,9 +80,8 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_profiles[user_id]["drink_count"] += servings
     if user_profiles[user_id]["start_time"] == 0:
         user_profiles[user_id]["start_time"] = time.time()
-    user_profiles[user_id]["elapsed_time"] = time.time() - user_profiles[user_id]["start_time"]
-    save_profiles()
-    await update.message.reply_text(f"Lisätty {servings} annosta lempijuomaasi.")
+    calculate_bac(user_id)
+    await update.message.reply_text(f"{user_profiles[user_id]["favorite_drink_name"]} +1.")
 
 
 def calculate_alcohol(vol, perc):
@@ -90,10 +89,30 @@ def calculate_alcohol(vol, perc):
     servings = pure_alcohol / 12
     return round(servings, 2)
 
+def calculate_bac(user_id):
+    profile = user_profiles[user_id]
+
+    profile["elapsed_time"] = time.time() - profile["start_time"]
+    drinking_time = profile["elapsed_time"] / 3600
+    
+    drinks = profile["drink_count"]
+    weight = profile["weight"] * 1000
+    gender = profile["gender"]
+    r = 0.68 if gender == "mies" else 0.55
+    total_grams_of_alcohol = drinks * 12
+    
+    bac = total_grams_of_alcohol / (weight * r) * 100
+    bac -= 0.015 * drinking_time
+    bac = max(0, bac) * 10
+
+    profile["BAC"] = bac
+    save_profiles()
+
 def reset_drink_stats():
     for user_id in user_profiles:
         user_profiles[user_id]["drink_count"] = 0
         user_profiles[user_id]["start_time"] = 0
         user_profiles[user_id]["elapsed_time"] = 0
+        user_profiles[user_id]["BAC"] = 0
     save_profiles()
 

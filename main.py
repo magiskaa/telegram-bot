@@ -3,13 +3,16 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from apscheduler.schedulers.background import BackgroundScheduler
 from config.config import BOT_TOKEN
-from bot.drinks import drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, SIZE, PERCENTAGE, FAVORITE
+from bot.drinks import drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, calculate_bac, SIZE, PERCENTAGE, FAVORITE
 from bot.setup import setup, get_gender, get_weight, update_gender, update_weight, button_handler, GENDER, WEIGHT, UPDATE_GENDER, UPDATE_WEIGHT
 from bot.save_and_load import save_profiles, user_profiles
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Heipat! Lasken veren alkoholipitoisuutesi🍻. Aloita kirjoittamalla /setup.")
+    await update.message.reply_text(
+        "Heipat! Lasken veren alkoholipitoisuutesi🍻.\n"
+        "Aloita kirjoittamalla /setup. Apua saat kirjoittamalla /help."
+    )
 
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
@@ -19,11 +22,12 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     profile_text = (
-        f"Profiili\n"
+        f"{profile["name"].capitalize()}n profiili\n"
         f"\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\n"
         f"Sukupuoli: {profile["gender"]}\n"
         f"Paino: {profile["weight"]} kg\n"
-        f"Lempijuoma: {profile["favorite_drink_size"].replace(".", "\\.")}l {profile["favorite_drink_percentage"].replace(".", "\\.")}%"
+        f"Lempijuoma: {profile["favorite_drink_name"]}\n"
+        f"{profile["favorite_drink_name"].capitalize()}: {profile["favorite_drink_size"].replace(".", "\\.")}l {profile["favorite_drink_percentage"].replace(".", "\\.")}%"
     )
 
     keyboard = [
@@ -64,7 +68,9 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     bac = total_grams_of_alcohol / (weight * r) * 100
     bac -= 0.015 * drinking_time
-    bac = max(0, bac) 
+    bac = max(0, bac) * 10
+
+    profile["BAC"] = bac
 
     if bac > 0:
         hours_until_sober = bac / 0.015
@@ -75,12 +81,12 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sober_text = "Olet jo selvinpäin."
 
     stats_text = (
-        f"Juonti statsit\n"
+        f"{profile["name"]}n statsit\n"
         f"===============================\n"
         f"Alkoholin määrä: {drinks:.2f} annosta.\n"
         f"Aloitus: {time.strftime('%H:%M:%S %d-%m-%Y', time.localtime(profile['start_time']))}.\n"
         f"Olet juonut {drinking_time:.2f} tuntia.\n"
-        f"Arvioitu BAC: {bac*10:.2f}‰.\n"
+        f"Arvioitu BAC: {bac:.2f}‰.\n"
         f"{sober_text}"
     )
 
@@ -96,10 +102,49 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_profiles[user_id]["drink_count"] = 0
     user_profiles[user_id]["start_time"] = 0
     user_profiles[user_id]["elapsed_time"] = 0
+    user_profiles[user_id]["BAC"] = 0
     save_profiles()
     await update.message.reply_text("Tilastot nollattu.")
     return ConversationHandler.END
 
+async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    drinkers = []
+    for user in user_profiles:
+        profile = user_profiles[user]
+        if profile["drink_count"] == 0:
+            continue
+        else:
+            calculate_bac(user)
+            drinkers.append(profile)
+
+    leaderboard = ""
+    sorted_drinkers = sorted(drinkers, key=lambda x: x["BAC"], reverse=True)
+    for i, profile in enumerate(sorted_drinkers, 1):
+        leaderboard += f"{i}. {profile["name"]} {profile["BAC"]:.2f}‰ ({profile["drink_count"]:.2f} annosta)\n"
+
+    if len(drinkers) != 0:
+        await update.message.reply_text(
+            "Ryhmän tilastot\n"
+            "===============================\n"
+            f"Juojia: {len(drinkers)}\n"
+            f"Juotu alkoholia: {sum([profile['drink_count'] for profile in drinkers]):.2f} annosta.\n"
+            "\nLeaderboard:\n"
+            f"{leaderboard}"
+        )
+
+async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    help_text = (
+        "Tervetuloa käyttämään veren alkoholipitoisuuden laskuria!\n"
+        "Käytä /setup komentoa aloittaaksesi.\n"
+        "Käytä /profile komentoa nähdäksesi profiilisi.\n"
+        "Käytä /drink komentoa lisätäksesi juomia.\n"
+        "Käytä /stats komentoa nähdäksesi tilastosi.\n"
+        "Käytä /reset komentoa nollataksesi tilastosi.\n"
+        "Käytä /favorite_drink komentoa asettaaksesi lempijuomasi.\n"
+        "Käytä /favorite komentoa lisätäksesi lempijuomasi.\n"
+        "Käytä /group_stats komentoa nähdäksesi ryhmän tilastot.\n"
+    )
+    await update.message.reply_text(help_text)
 
 
 def main():
@@ -142,9 +187,11 @@ def main():
     app.add_handler(CommandHandler("favorite", favorite))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("reset", reset))
+    app.add_handler(CommandHandler("group_stats", group_stats))
+    app.add_handler(CommandHandler("help", help))
 
     scheduler = BackgroundScheduler()
-    scheduler.add_job(reset_drink_stats, 'cron', hour=12, minute=0)
+    scheduler.add_job(reset_drink_stats, 'cron', hour=14, minute=0)
     scheduler.start()
 
     app.run_polling()

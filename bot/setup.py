@@ -24,13 +24,16 @@ async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
             raise ValueError("Paino ei voi olla negatiivinen.")
         user_id = str(update.message.from_user.id)
         user_profiles[user_id] = {
+            "name": update.message.from_user.first_name,
             "gender": context.user_data["gender"],
             "weight": weight,
             "drink_count": 0,
             "start_time": 0,
             "elapsed_time": 0,
-            "favorite_drink_size": 0,
-            "favorite_drink_percentage": 0,
+            "BAC": 0,
+            "favorite_drink_size": "ei määritetty",
+            "favorite_drink_percentage": "ei määritetty",
+            "favorite_drink_name": "ei määritetty",
         }
         save_profiles()
     except ValueError:
