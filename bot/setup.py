@@ -28,7 +28,9 @@ async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "weight": weight,
             "drink_count": 0,
             "start_time": 0,
-            "elapsed_time": 0
+            "elapsed_time": 0,
+            "favorite_drink_size": 0,
+            "favorite_drink_percentage": 0,
         }
         save_profiles()
     except ValueError:

@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from apscheduler.schedulers.background import BackgroundScheduler
 from config.config import BOT_TOKEN
-from bot.drinks import drink, get_size, get_percentage, reset_drink_stats, SIZE, PERCENTAGE
+from bot.drinks import drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, SIZE, PERCENTAGE, FAVORITE
 from bot.setup import setup, get_gender, get_weight, update_gender, update_weight, button_handler, GENDER, WEIGHT, UPDATE_GENDER, UPDATE_WEIGHT
 from bot.save_and_load import save_profiles, user_profiles
 
@@ -19,8 +19,11 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     profile_text = (
+        f"Profiili\n"
+        f"\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\n"
         f"Sukupuoli: {profile["gender"]}\n"
         f"Paino: {profile["weight"]} kg\n"
+        f"Lempijuoma: {profile["favorite_drink_size"].replace(".", "\\.")}l {profile["favorite_drink_percentage"].replace(".", "\\.")}%"
     )
 
     keyboard = [
@@ -72,10 +75,12 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sober_text = "Olet jo selvinpäin."
 
     stats_text = (
+        f"Juonti statsit\n"
+        f"===============================\n"
         f"Alkoholin määrä: {drinks:.2f} annosta.\n"
-        f"Aloitus: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(profile['start_time']))}.\n"
+        f"Aloitus: {time.strftime('%H:%M:%S %d-%m-%Y', time.localtime(profile['start_time']))}.\n"
         f"Olet juonut {drinking_time:.2f} tuntia.\n"
-        f"Arvioitu BAC: {bac*10:.4f}‰.\n"
+        f"Arvioitu BAC: {bac*10:.2f}‰.\n"
         f"{sober_text}"
     )
 
@@ -125,6 +130,16 @@ def main():
     )
     app.add_handler(drink_conv_handler)
 
+    favorite_conv_handler = ConversationHandler(
+    entry_points=[CommandHandler("favorite_drink", favorite_drink)],
+    states={
+        FAVORITE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_favorite)]
+    },
+    fallbacks=[CommandHandler("cancel", cancel)]
+    )
+    app.add_handler(favorite_conv_handler)
+
+    app.add_handler(CommandHandler("favorite", favorite))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("reset", reset))
 
