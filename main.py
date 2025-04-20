@@ -4,7 +4,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Messa
 from apscheduler.schedulers.background import BackgroundScheduler
 from config.config import BOT_TOKEN
 from bot.drinks import drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, calculate_bac, SIZE, PERCENTAGE, FAVORITE
-from bot.setup import setup, get_gender, get_weight, update_gender, update_weight, button_handler, GENDER, WEIGHT, UPDATE_GENDER, UPDATE_WEIGHT
+from bot.setup import setup, get_gender, get_weight, update_gender, update_weight, button_handler, GENDER, WEIGHT, UPDATE_GENDER, UPDATE_WEIGHT, FAVORITE_SETUP
 from bot.save_and_load import save_profiles, user_profiles
 
 
@@ -32,7 +32,8 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [InlineKeyboardButton("Muokkaa sukupuolta", callback_data="edit_gender")],
-        [InlineKeyboardButton("Muokkaa painoa", callback_data="edit_weight")]
+        [InlineKeyboardButton("Muokkaa painoa", callback_data="edit_weight")],
+        [InlineKeyboardButton("Muokkaa lempijuomaa", callback_data="edit_favorite")],
     ]
 
     await update.message.reply_text(
@@ -68,9 +69,9 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     bac = total_grams_of_alcohol / (weight * r) * 100
     bac -= 0.015 * drinking_time
-    bac = max(0, bac) * 10
+    bac = max(0, bac)
 
-    profile["BAC"] = bac
+    profile["BAC"] = bac * 10
 
     if bac > 0:
         hours_until_sober = bac / 0.015
@@ -86,7 +87,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Alkoholin määrä: {drinks:.2f} annosta.\n"
         f"Aloitus: {time.strftime('%H:%M:%S %d-%m-%Y', time.localtime(profile['start_time']))}.\n"
         f"Olet juonut {drinking_time:.2f} tuntia.\n"
-        f"Arvioitu BAC: {bac:.2f}‰.\n"
+        f"Arvioitu BAC: {bac*10:.2f}‰.\n"
         f"{sober_text}"
     )
 
@@ -158,11 +159,11 @@ def main():
             GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_gender)],
             WEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_weight)],
             UPDATE_GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_gender)],
-            UPDATE_WEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_weight)]
+            UPDATE_WEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_weight)],
+            FAVORITE_SETUP: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_favorite)],
         },
         fallbacks=[CommandHandler("cancel", cancel)]
     )
-    app.add_handler(CommandHandler("profile", profile))
     app.add_handler(setup_conv_handler)
 
     drink_conv_handler = ConversationHandler(
@@ -184,6 +185,7 @@ def main():
     )
     app.add_handler(favorite_conv_handler)
 
+    app.add_handler(CommandHandler("profile", profile))
     app.add_handler(CommandHandler("favorite", favorite))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("reset", reset))

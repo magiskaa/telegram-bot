@@ -11,6 +11,6 @@ def load_profiles():
 
 def save_profiles():
     with open(PROFILE_FILE, "w") as f:
-        json.dump(user_profiles, f)
+        json.dump(user_profiles, f, ensure_ascii=False, indent=4)
 
 user_profiles = load_profiles()

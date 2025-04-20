@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from bot.save_and_load import save_profiles, user_profiles
 
-GENDER, WEIGHT, UPDATE_GENDER, UPDATE_WEIGHT = range(4)
+GENDER, WEIGHT, UPDATE_GENDER, UPDATE_WEIGHT, FAVORITE_SETUP = range(5)
 
 async def setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Mikä on sukupuolesi? (mies/nainen)")
@@ -76,5 +76,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "edit_weight":
         await query.message.reply_text("Kirjoita uusi paino kiloina:")
         return UPDATE_WEIGHT
+    elif data == "edit_favorite":
+        await query.message.reply_text("Kirjoita uusi lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari):")
+        return FAVORITE_SETUP
 
 
