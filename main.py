@@ -141,7 +141,7 @@ async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     leaderboard = ""
     sorted_drinkers = sorted(drinkers, key=lambda x: x["BAC"], reverse=True)
     for i, profile in enumerate(sorted_drinkers, 1):
-        leaderboard += f"{i}. {profile["name"]} {profile["BAC"]:.2f}‰ ({profile["drink_count"]:.2f} annosta)\n"
+        leaderboard += f"{i}. {profile['name']} {profile['BAC']:.2f}‰ ({profile['drink_count']:.2f} annosta)\n"
 
     if len(drinkers) != 0:
         await update.message.reply_text(
@@ -166,6 +166,11 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Käytä /group_stats komentoa nähdäksesi ryhmän tilastot.\n"
     )
     await update.message.reply_text(help_text)
+
+async def group_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    group_id = update.effective_chat.id
+    with open("config/group_id.txt", "w") as f:
+        f.write(str(group_id))
 
 
 def main():
@@ -215,6 +220,7 @@ def main():
     app.add_handler(CommandHandler("reset", reset))
     app.add_handler(CommandHandler("group_stats", group_stats))
     app.add_handler(CommandHandler("help", help))
+    app.add_handler(CommandHandler("group_id", group_id))
 
     scheduler = BackgroundScheduler()
     scheduler.add_job(reset_drink_stats, 'cron', hour=14, minute=0)
