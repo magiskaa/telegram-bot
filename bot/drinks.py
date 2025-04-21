@@ -12,14 +12,14 @@ async def drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
         return
 
-    await update.message.reply_text("Minkä kokoinen juoma?")
+    await update.message.reply_text("Minkä kokoinen juoma? Voit vähentää juoman asettamalla koon negatiiviseksi.")
     return SIZE
 
 async def get_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         size = float(update.message.text)
-        if size <= 0:
-            raise ValueError("Koko ei voi olla nolla tai negatiivinen.")
+        if size == 0:
+            raise ValueError("Koko ei voi olla nolla.")
         context.user_data["size"] = size
         await update.message.reply_text("Kuinka monta prosenttia juomassa on alkoholia?")
         return PERCENTAGE
@@ -81,7 +81,7 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_profiles[user_id]["start_time"] == 0:
         user_profiles[user_id]["start_time"] = time.time()
     calculate_bac(user_id)
-    await update.message.reply_text(f"{user_profiles[user_id]["favorite_drink_name"]} +1.")
+    await update.message.reply_text(f"{user_profiles[user_id]['favorite_drink_name']} +1.")
 
 
 def calculate_alcohol(vol, perc):
@@ -96,16 +96,24 @@ def calculate_bac(user_id):
     drinking_time = profile["elapsed_time"] / 3600
     
     drinks = profile["drink_count"]
-    weight = profile["weight"] * 1000
+    weight = profile["weight"]
     gender = profile["gender"]
-    r = 0.68 if gender == "mies" else 0.55
+    age = profile["age"]
+    height = profile["height"]
+    if gender == "mies":
+        TBW = 2.447 - 0.09516 * age + 0.1074 * height + 0.3362 * weight
+    else:
+        TBW = -2.097 + 0.1069 * height + 0.2466 * weight
+    r = TBW / weight
     total_grams_of_alcohol = drinks * 12
     
-    bac = total_grams_of_alcohol / (weight * r) * 100
-    bac -= 0.015 * drinking_time
-    bac = max(0, bac) * 10
+    bac = total_grams_of_alcohol / (weight*1000 * r) * 100
+    grams_per_kg = 0.1 * weight
+    bac_elim = grams_per_kg / (weight*1000 * r) * 100
+    bac -= bac_elim * drinking_time
+    bac = max(0, bac)
 
-    profile["BAC"] = bac
+    profile["BAC"] = bac * 10
     save_profiles()
 
 def reset_drink_stats():
