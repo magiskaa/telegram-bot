@@ -108,7 +108,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     drinking_time_m = int(drinking_time % 1 * 60)
     stats_text = (
         f"{name_conjugation(profile['name'], 'n')} statsit\n"
-        f"===============================\n"
+        f"==========================\n"
         f"Alkoholin määrä: {drinks:.2f} annosta.\n"
         f"Aloitus: {time.strftime('%H:%M:%S', time.localtime(profile['start_time']))}.\n"
         f"Olet juonut {drinking_time_h}h {drinking_time_m}min.\n"
@@ -164,7 +164,7 @@ async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(drinkers) != 0:
         await update.message.reply_text(
             "Ryhmän tilastot\n"
-            "===============================\n"
+            "==========================\n"
             f"Juojia: {len(drinkers)}\n"
             f"Alkoholia juotu: {sum([profile['drink_count'] for profile in drinkers]):.2f} annosta.\n"
             "\nLeaderboard tällä hetkellä:\n"
@@ -179,7 +179,7 @@ async def top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     group_id = get_group_id()
     text = (
         "Top 3 kännit\n"
-        "======================================\n"
+        "=============================\n"
         f"1. {first['name'].capitalize()} {first['BAC']:.2f}‰ ({first['drinks']:.2f} annosta) {first['day']}\n"
         f"2. {second['name'].capitalize()} {second['BAC']:.2f}‰ ({second['drinks']:.2f} annosta) {second['day']}\n"
         f"3. {third['name'].capitalize()} {third['BAC']:.2f}‰ ({third['drinks']:.2f} annosta) {third['day']}\n"

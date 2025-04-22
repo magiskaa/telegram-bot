@@ -199,11 +199,19 @@ async def recap(context: CallbackContext):
     leaderboard = ""
     sorted_drinkers = sorted(drinkers, key=lambda x: x["highest_BAC"], reverse=True)
     for i, profile in enumerate(sorted_drinkers, 1):
-        leaderboard += f"{i}. {profile['name']} {profile['highest_BAC']:.2f}‰ ({profile['highest_drink_count']:.2f} annosta)\n"
+        if profile["name"] == user_profiles["top_3"]["1"]["name"] and profile["highest_BAC"] == user_profiles["top_3"]["1"]["BAC"]:
+            text = "Top 1!"
+        elif profile["name"] == user_profiles["top_3"]["2"]["name"] and profile["highest_BAC"] == user_profiles["top_3"]["2"]["BAC"]:
+            text = "Top 2!"
+        elif profile["name"] == user_profiles["top_3"]["3"]["name"] and profile["highest_BAC"] == user_profiles["top_3"]["3"]["BAC"]:
+            text = "Top 3!"
+        else:
+            text = ""
+        leaderboard += f"{i}. {profile['name']} {profile['highest_BAC']:.2f}‰ ({profile['highest_drink_count']:.2f} annosta) {text}\n"
 
     text = (
         "Eilisen juomatilastot:\n"
-        "=========================\n"
+        "==========================\n"
         f"Juojia: {len(drinkers)}\n"
         f"Alkoholia juotu: {sum([profile['highest_drink_count'] for profile in drinkers]):.2f} annosta.\n"
         "\nLeaderboard:\n"
