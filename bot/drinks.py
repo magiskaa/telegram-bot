@@ -156,8 +156,6 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
     profile = user_profiles.get(user_id)
 
-    group_id = get_group_id()
-
     name = profile["name"].capitalize()
 
     MESSAGES = [
@@ -180,7 +178,7 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     await context.bot.send_animation(
-        chat_id=group_id, 
+        chat_id=GROUP_ID, 
         animation=random.choice(GIFS),
         caption=random.choice(MESSAGES) + f" {profile['BAC']:.2f}‰")
     return ConversationHandler.END

@@ -4,7 +4,7 @@ import math
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from datetime import time as datetime_time
-from config.config import BOT_TOKEN, TOP_3_GIFS
+from config.config import BOT_TOKEN, GROUP_ID, TOP_3_GIFS
 from bot.save_and_load import save_profiles, user_profiles
 from bot.drinks import (
     drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, name_conjugation, calculate_bac, get_group_id, recap,
@@ -176,7 +176,6 @@ async def top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     second = user_profiles["top_3"]["2"]
     third = user_profiles["top_3"]["3"]
 
-    group_id = get_group_id()
     text = (
         "Top 3 kännit\n"
         "=============================\n"
@@ -186,7 +185,7 @@ async def top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await context.bot.send_animation(
-        chat_id=group_id,
+        chat_id=GROUP_ID,
         animation=random.choice(TOP_3_GIFS),
         caption=text
     )
