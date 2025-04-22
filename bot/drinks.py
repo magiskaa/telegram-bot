@@ -1,9 +1,9 @@
 import time
 import random
 from bot.save_and_load import save_profiles, user_profiles
-from config.config import GIFS
+from config.config import GIFS, GROUP_ID
 from telegram import Update
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram.ext import ContextTypes, ConversationHandler, CallbackContext
 
 SIZE, PERCENTAGE = range(2)
 FAVORITE = 1
@@ -38,14 +38,26 @@ async def get_percentage(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = str(update.message.from_user.id)
         servings = calculate_alcohol(context.user_data["size"], context.user_data["percentage"])
         user_profiles[user_id]["drink_count"] += servings
+
+        if user_profiles[user_id]["drink_count"] > user_profiles[user_id]["highest_drink_count"]:
+            user_profiles[user_id]["highest_drink_count"] = user_profiles[user_id]["drink_count"]
+
         if user_profiles[user_id]["start_time"] == 0:
             user_profiles[user_id]["start_time"] = time.time()
+
         calculate_bac(user_id)
+
+        if user_profiles[user_id]["BAC"] > user_profiles[user_id]["highest_BAC"]:
+            user_profiles[user_id]["highest_BAC"] = user_profiles[user_id]["BAC"]
+                
         await top_3_update(update, context)
         save_profiles()
+        
         await update.message.reply_text(f"Lisätty {servings} annosta.")
+        
         if user_profiles[user_id]["BAC"] > 1.7:
             await message(update, context)
+        
         return ConversationHandler.END
     except ValueError:
         await update.message.reply_text("Virheellinen syöte. Kirjoita prosentti desimaalilukuna. (esim. 4.2)")
@@ -84,12 +96,23 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
     percentage = user_profiles[user_id]["favorite_drink_percentage"]
     servings = calculate_alcohol(float(size), float(percentage))
     user_profiles[user_id]["drink_count"] += servings
+
+    if user_profiles[user_id]["drink_count"] > user_profiles[user_id]["highest_drink_count"]:
+        user_profiles[user_id]["highest_drink_count"] = user_profiles[user_id]["drink_count"]
+
     if user_profiles[user_id]["start_time"] == 0:
         user_profiles[user_id]["start_time"] = time.time()
+
     calculate_bac(user_id)
+
+    if user_profiles[user_id]["BAC"] > user_profiles[user_id]["highest_BAC"]:
+        user_profiles[user_id]["highest_BAC"] = user_profiles[user_id]["BAC"]
+
     await top_3_update(update, context)
     save_profiles()
+
     await update.message.reply_text(f"{user_profiles[user_id]['favorite_drink_name'].capitalize()} +1.")
+
     if user_profiles[user_id]["BAC"] > 1.7:
         await message(update, context)
 
@@ -138,22 +161,22 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = profile["name"].capitalize()
 
     MESSAGES = [
-        f"{name_conjugation(name, 'lle')} tulee kohta hissiefekti, ottakaa bileämpäri hollille.",
-        f"{name_conjugation(name, 'lla')} menee nyt lujaa.",
-        f"Ottakaa {name_conjugation(name, 'lta')} pullo pois!",
-        f"{name_conjugation(name, 'lle')} ei enää tarjoilla.",
-        f"{name_conjugation(name, 'lla')} on huomenna rapsakat tunnelmat.",
-        f"{name} ottaa nyt väliveden.",
-        f"Onkohan tuo {name} kiskonu jo ihan tarpeeks?",
-        f"{name_conjugation(name, 'lle')} tulee kohta väsyväsy.",
-        f"{name} selvästi tähtää top 3 känneihin.",
-        f"{name_conjugation(name, 'lle')} tulee morkkis.",
-        f"{name} ei välttämättä muista koko iltaa, mutta me muistetaan.",
-        f"{name_conjugation(name, 'lla')} on ollu jano.",
-        f"{name} ei kohta enää muista omaa nimee.",
-        f"{name_conjugation(name, 'lla')} on selkeästi nestetasapaino kohillaan.",
-        f"Onkohan {name_conjugation(name, 'lla')} vielä huomen sama mp tästä juomatahdista?",
-        f"{name_conjugation(name, 'lle')} nyt bileämpäri kätösiin!",
+        f"{name_conjugation(name, 'lle').capitalize()} tulee kohta hissiefekti, ottakaa bileämpäri hollille.",
+        f"{name_conjugation(name, 'lla').capitalize()} menee nyt lujaa.",
+        f"{name_conjugation(name, 'lta').capitalize()} pullo pois!",
+        f"{name_conjugation(name, 'lle').capitalize()} ei enää tarjoilla.",
+        f"{name_conjugation(name, 'lla').capitalize()} on huomenna rapsakat tunnelmat.",
+        f"{name.capitalize()} ottaa nyt väliveden.",
+        f"Onkohan tuo {name.capitalize()} kiskonu jo ihan tarpeeks?",
+        f"{name_conjugation(name, 'lle').capitalize()} tulee kohta väsyväsy.",
+        f"{name.capitalize()} selvästi tähtää top 3 känneihin.",
+        f"{name_conjugation(name, 'lle').capitalize()} tulee morkkis.",
+        f"{name.capitalize()} ei välttämättä muista koko iltaa, mutta me muistetaan.",
+        f"{name_conjugation(name, 'lla').capitalize()} on ollu jano.",
+        f"{name.capitalize()} ei kohta enää muista omaa nimee.",
+        f"{name_conjugation(name, 'lla').capitalize()} on selkeästi nestetasapaino kohillaan.",
+        f"Onkohan {name_conjugation(name, 'lla').capitalize()} vielä huomen sama mp tästä juomatahdista?",
+        f"{name_conjugation(name, 'lle').capitalize()} nyt bileämpäri kätösiin!",
     ]
 
     await context.bot.send_animation(
@@ -161,6 +184,32 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         animation=random.choice(GIFS),
         caption=random.choice(MESSAGES) + f" {profile['BAC']:.2f}‰")
     return ConversationHandler.END
+
+async def recap(context: CallbackContext):
+    drinkers = []
+    for user in user_profiles:
+        if user != "top_3":
+            profile = user_profiles[user]
+            if profile["highest_drink_count"] > 0:
+                drinkers.append(profile)
+    
+    if len(drinkers) == 0:
+        return
+    
+    leaderboard = ""
+    sorted_drinkers = sorted(drinkers, key=lambda x: x["highest_BAC"], reverse=True)
+    for i, profile in enumerate(sorted_drinkers, 1):
+        leaderboard += f"{i}. {profile['name']} {profile['highest_BAC']:.2f}‰ ({profile['highest_drink_count']:.2f} annosta)\n"
+
+    text = (
+        "Eilisen juomatilastot:\n"
+        "=========================\n"
+        f"Juojia: {len(drinkers)}\n"
+        f"Alkoholia juotu: {sum([profile['highest_drink_count'] for profile in drinkers]):.2f} annosta.\n"
+        "\nLeaderboard:\n"
+        f"{leaderboard}"
+    )
+    await context.bot.send_message(chat_id=GROUP_ID, text=text)
 
 def name_conjugation(name, ending):
     name = name.strip()
@@ -235,6 +284,8 @@ def reset_drink_stats():
         user_profiles[user_id]["start_time"] = 0
         user_profiles[user_id]["elapsed_time"] = 0
         user_profiles[user_id]["BAC"] = 0
+        user_profiles[user_id]["highest_drink_count"] = 0
+        user_profiles[user_id]["highest_BAC"] = 0
     save_profiles()
 
 def get_group_id():

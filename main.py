@@ -3,11 +3,11 @@ import random
 import math
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
-from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import time as datetime_time
 from config.config import BOT_TOKEN, TOP_3_GIFS
 from bot.save_and_load import save_profiles, user_profiles
 from bot.drinks import (
-    drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, name_conjugation, calculate_bac, get_group_id, 
+    drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, name_conjugation, calculate_bac, get_group_id, recap,
     SIZE, PERCENTAGE, FAVORITE
 )
 from bot.setup import (
@@ -136,7 +136,11 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_profiles[user_id]["start_time"] = 0
     user_profiles[user_id]["elapsed_time"] = 0
     user_profiles[user_id]["BAC"] = 0
+    user_profiles[user_id]["highest_drink_count"] = 0
+    user_profiles[user_id]["highest_BAC"] = 0
+
     save_profiles()
+
     await update.message.reply_text("Tilastot nollattu.")
     return ConversationHandler.END
 
@@ -163,7 +167,7 @@ async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "===============================\n"
             f"Juojia: {len(drinkers)}\n"
             f"Alkoholia juotu: {sum([profile['drink_count'] for profile in drinkers]):.2f} annosta.\n"
-            "\nLeaderboard:\n"
+            "\nLeaderboard tällä hetkellä:\n"
             f"{leaderboard}"
         )
 
@@ -261,9 +265,9 @@ def main():
     
     app.add_handler(CommandHandler("group_id", group_id))
 
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(reset_drink_stats, 'cron', hour=14, minute=0)
-    scheduler.start()
+    job_queue = app.job_queue
+    job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00
+    job_queue.run_daily(reset_drink_stats, datetime_time(hour=11, minute=0)) # This is 14:00
 
     app.run_polling()
 
