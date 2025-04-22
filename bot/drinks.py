@@ -1,7 +1,7 @@
 import time
 import random
 from bot.save_and_load import save_profiles, user_profiles
-from config.config import GIFS, EMOJIS
+from config.config import GIFS
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 
@@ -41,6 +41,8 @@ async def get_percentage(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_profiles[user_id]["start_time"] == 0:
             user_profiles[user_id]["start_time"] = time.time()
         calculate_bac(user_id)
+        await top_3_update(update, context)
+        save_profiles()
         await update.message.reply_text(f"Lisätty {servings} annosta.")
         if user_profiles[user_id]["BAC"] > 1.7:
             await message(update, context)
@@ -85,9 +87,47 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_profiles[user_id]["start_time"] == 0:
         user_profiles[user_id]["start_time"] = time.time()
     calculate_bac(user_id)
-    await update.message.reply_text(f"{user_profiles[user_id]['favorite_drink_name']} +1.")
+    await top_3_update(update, context)
+    save_profiles()
+    await update.message.reply_text(f"{user_profiles[user_id]['favorite_drink_name'].capitalize()} +1.")
     if user_profiles[user_id]["BAC"] > 1.7:
         await message(update, context)
+
+async def top_3_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    profile = user_profiles.get(user_id)
+    BAC = profile["BAC"]
+    name = profile["name"].capitalize()
+    drinks = profile["drink_count"]
+    day = time.strftime("%d.%m.%Y")
+    
+    top_3_candidates = []
+    for pos in ["1", "2", "3"]:
+        current_user = user_profiles["top_3"][pos]
+        if current_user["name"] == name and current_user["BAC"] > BAC:
+            return
+        elif current_user["name"] != "ei kukaan" and current_user["name"] != name:
+            top_3_candidates.append(current_user)
+
+    top_3_candidates.append({
+        "name": name,
+        "BAC": BAC,
+        "drinks": drinks,
+        "day": day,
+    })
+
+    top_3_candidates.sort(key=lambda x: x["BAC"], reverse=True)
+
+    for i, pos in enumerate(["1", "2", "3"]):
+        if i < len(top_3_candidates):
+            user_profiles["top_3"][pos] = top_3_candidates[i]
+        else:
+            user_profiles["top_3"][pos] = {
+                "name": "ei kukaan",
+                "BAC": 0,
+                "drinks": 0,
+                "day": "ei milloinkaan",
+            }
 
 async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
@@ -98,25 +138,28 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = profile["name"].capitalize()
 
     MESSAGES = [
-        f"{name_conjugation(name, "lle")} tulee kohta hissiefekti, ottakaa bileämpäri hollille.",
-        f"{name_conjugation(name, "lla")} menee nyt lujaa.",
-        f"Ottakaa {name_conjugation(name, "lta")} pullo pois!",
-        f"{name_conjugation(name, "lle")} ei enää tarjoilla.",
-        f"{name_conjugation(name, "lla")} on huomenna rapsakat tunnelmat.",
+        f"{name_conjugation(name, 'lle')} tulee kohta hissiefekti, ottakaa bileämpäri hollille.",
+        f"{name_conjugation(name, 'lla')} menee nyt lujaa.",
+        f"Ottakaa {name_conjugation(name, 'lta')} pullo pois!",
+        f"{name_conjugation(name, 'lle')} ei enää tarjoilla.",
+        f"{name_conjugation(name, 'lla')} on huomenna rapsakat tunnelmat.",
         f"{name} ottaa nyt väliveden.",
-        f"Onkohan tuo {name} kiskonut jo ihan tarpeeksi?",
-        f"{name_conjugation(name, "lle")} tulee kohta väsyväsy.",
+        f"Onkohan tuo {name} kiskonu jo ihan tarpeeks?",
+        f"{name_conjugation(name, 'lle')} tulee kohta väsyväsy.",
         f"{name} selvästi tähtää top 3 känneihin.",
         f"{name_conjugation(name, 'lle')} tulee morkkis.",
         f"{name} ei välttämättä muista koko iltaa, mutta me muistetaan.",
-        f"{name} on valittu tämän illan vastuuttomimmaksi jannuksi.",
         f"{name_conjugation(name, 'lla')} on ollu jano.",
+        f"{name} ei kohta enää muista omaa nimee.",
+        f"{name_conjugation(name, 'lla')} on selkeästi nestetasapaino kohillaan.",
+        f"Onkohan {name_conjugation(name, 'lla')} vielä huomen sama mp tästä juomatahdista?",
+        f"{name_conjugation(name, 'lle')} nyt bileämpäri kätösiin!",
     ]
 
     await context.bot.send_animation(
         chat_id=group_id, 
         animation=random.choice(GIFS),
-        caption=random.choice(MESSAGES) + f" {profile['BAC']:.2f}‰ {random.choice(EMOJIS)}")
+        caption=random.choice(MESSAGES) + f" {profile['BAC']:.2f}‰")
     return ConversationHandler.END
 
 def name_conjugation(name, ending):
@@ -146,8 +189,13 @@ def name_conjugation(name, ending):
             return name + "ltä"
         else:
             return name + "lta"
-
-
+    elif ending == "n":
+        if name.endswith("kko"):
+            return name[:-2] + "on"
+        elif name.endswith("tti"):
+            return name[:-2] + "in"
+        else:
+            return name + "n"
 
 def calculate_alcohol(vol, perc):
     pure_alcohol = vol * (perc / 100) * 789
