@@ -285,7 +285,7 @@ def calculate_alcohol(vol, perc):
     servings = pure_alcohol / 12
     return round(servings, 2)
 
-def calculate_bac(user_id):
+def calculate_bac(user_id, noSaving=False):
     profile = user_profiles[user_id]
 
     profile["elapsed_time"] = time.time() - profile["start_time"]
@@ -309,8 +309,12 @@ def calculate_bac(user_id):
     bac -= bac_elim * drinking_time
     bac = max(0, bac)
 
-    profile["BAC"] = bac * 10
-    save_profiles()
+    if noSaving:
+        profile["BAC"] = bac
+        return bac_elim
+    else:
+        profile["BAC"] = bac * 10
+        save_profiles()
 
 def reset_drink_stats():
     for user_id in user_profiles:

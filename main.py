@@ -72,40 +72,22 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Own stats command
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
-    profile = user_profiles.get(user_id)
-    if not profile:
+    profile = user_profiles[user_id]
+    if user_id not in user_profiles:
         await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
         return
     if profile["start_time"] == 0:
         await update.message.reply_text("Et ole vielä aloittanut juomista.")
         return
     
-    profile["elapsed_time"] = time.time() - profile["start_time"]
+    bac_elim = calculate_bac(user_id, noSaving=True)
 
+    bac = profile["BAC"]
     drinking_time = profile["elapsed_time"] / 3600
-
     drinks = profile["drink_count"]
-    weight = profile["weight"]
-    gender = profile["gender"]
-    age = profile["age"]
-    height = profile["height"]
-    if gender == "mies":
-        TBW = 2.447 - 0.09516 * age + 0.1074 * height + 0.3362 * weight
-    else:
-        TBW = -2.097 + 0.1069 * height + 0.2466 * weight
-    r = TBW / weight
-    total_grams_of_alcohol = drinks * 12
     
-    bac = total_grams_of_alcohol / (weight*1000 * r) * 100
-    grams_per_kg = 0.1 * weight
-    bac_elim = grams_per_kg / (weight*1000 * r) * 100
-    bac -= bac_elim * drinking_time
-    bac = max(0, bac)
-
-    profile["BAC"] = bac * 10
-
     if bac > 0:
-        hours_until_sober = bac / 0.015
+        hours_until_sober = bac / bac_elim
         sober_timestamp = time.time() + (hours_until_sober * 3600)
         sober_time_str = time.strftime("%H:%M", time.gmtime(sober_timestamp + 3 * 3600))
         sober_text = f"Selvinpäin olet noin klo {sober_time_str}."
@@ -301,7 +283,6 @@ async def announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text("Ilmoitus lähetetty ryhmään.")
     return ConversationHandler.END
-
 
 
 def main():
