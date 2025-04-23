@@ -5,7 +5,7 @@ import openai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from datetime import time as datetime_time
-from config.config import BOT_TOKEN, GROUP_ID, TOP_3_GIFS, OPENAI_API, ADMIN_ID
+from config.config import BOT_TOKEN, GROUP_ID, TOP_3_GIFS, OPENAI_API, ADMIN_ID, ANNOUNCEMENT_TEXT
 from bot.save_and_load import save_profiles, user_profiles
 from bot.drinks import (
     drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, name_conjugation, calculate_bac, recap,
@@ -17,7 +17,9 @@ from bot.setup import (
 )
 
 ASK = 1
-ANNOUNCEMENT = 1
+FIRST_ASK = True
+ANNOUNCEMENT, ANSWER = range(2)
+announcement_text = ""
 
 # User commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -66,6 +68,8 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Cancel command
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global FIRST_ASK
+    FIRST_ASK = True
     await update.message.reply_text("Peruutettu.")
     return ConversationHandler.END
 
@@ -212,18 +216,33 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ASK
 
 async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global FIRST_ASK
     openai.api_key = OPENAI_API
-    message = update.message.text
+    user_message = update.message.text
+    user_id = str(update.message.from_user.id)
 
-    if message.lower() == "heippa":
+    if user_message.lower() == "heippa" or user_message.lower() == "heippa!":
         await update.message.reply_text("Heippa!")
+        FIRST_ASK = True
         return ConversationHandler.END
     
+    if FIRST_ASK:
+        FIRST_ASK = False
+        message = (
+            "Olet tekoälykaveri, jolta saatan kysyä mitä tahansa mieleeni juolahtaa, "
+             "tai jopa jotain syvällisempiäkin asioita. Vastaa suht lyhyesti ja aina suomeksi. "
+             f"Nimeni on {user_profiles[user_id]['name']}. "
+             f"Tässä mietteeni tällä kertaa: {user_message}"
+        )
+    else:
+        message = user_message
+
+
     model = "gpt-4.1-mini"
     response = openai.ChatCompletion.create(
         model=model,
         messages=[
-            {"role": "user", "content": f"{message}"}
+            {"role": "user", "content": message}
         ],
     )
     await update.message.reply_text(response.choices[0].message.content)
@@ -275,15 +294,36 @@ async def announcement_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return ANNOUNCEMENT
 
 async def announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    announcement_text = update.message.text
-    await context.bot.send_animation(
-        chat_id=GROUP_ID,
-        animation="https://media.tenor.com/8SXy2qDXA0QAAAAi/okay-pepe.gif",
-        caption=announcement_text)
-    
-    await update.message.reply_text("Ilmoitus lähetetty ryhmään.")
-    return ConversationHandler.END
+    global announcement_text
+    openai.api_key = OPENAI_API
+    announcement_details = update.message.text
+    model = "gpt-4.1-mini"
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=[
+            {"role": "user", "content": ANNOUNCEMENT_TEXT + f"Tarkemmat tiedot tulevat tässä: {announcement_details}"}
+        ],
+    )
+    announcement_text = response.choices[0].message.content
+    await update.message.reply_text(announcement_text)
 
+    await update.message.reply_text("Haluatko lähettää tämän ryhmään? (k/e)")
+    return ANSWER
+    
+async def announcement_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global announcement_text
+    answer = update.message.text
+    if answer.lower() == "k":
+        #await context.bot.send_message(chat_id=GROUP_ID, text=announcement_text)
+        await update.message.reply_text(announcement_text)
+        await update.message.reply_text("Ilmoitus lähetetty ryhmään.")
+        return ConversationHandler.END
+    elif answer.lower() == "e":
+        await update.message.reply_text("Ilmoitus peruutettu.")
+        return ConversationHandler.END
+    else:
+        await update.message.reply_text("Virheellinen syöte. Ilmoitus peruutettu.")
+        return ConversationHandler.END
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -352,7 +392,8 @@ def main():
     announcement_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("announcement", announcement_input)],
         states={
-            ANNOUNCEMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, announcement)]
+            ANNOUNCEMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, announcement)],
+            ANSWER: [MessageHandler(filters.TEXT & ~filters.COMMAND, announcement_to_group)]
         },
         fallbacks=[CommandHandler("cancel", cancel)]
     )
