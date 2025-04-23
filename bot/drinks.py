@@ -186,12 +186,24 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{name} ottaa nyt väliveden.",
     ]
 
-    if bac >= 2.0 and bac < 2.3:
-        MESSAGES = MESSAGES_2_0
-    elif bac >= 2.3:
-        MESSAGES = MESSAGES_2_3
-    else:
+    MESSAGES_2_7 = [
+        f"{name} kuolee.",
+    ]
+
+    if bac >= 1.7 and bac < 2.0 and profile["BAC_1_7"] == 0:
+        profile["BAC_1_7"] = 1
         MESSAGES = MESSAGES_1_7
+    if bac >= 2.0 and bac < 2.3 and profile["BAC_2_0"] == 0:
+        profile["BAC_2_0"] = 1
+        MESSAGES = MESSAGES_2_0
+    elif bac >= 2.3 and bac < 2.7 and profile["BAC_2_3"] == 0:
+        profile["BAC_2_3"] = 1
+        MESSAGES = MESSAGES_2_3
+    elif bac >= 2.7 and profile["BAC_2_7"] == 0:
+        profile["BAC_2_7"] = 1
+        MESSAGES = MESSAGES_2_7
+    else:
+        return
     
     await context.bot.send_animation(
         chat_id=GROUP_ID, 
@@ -308,6 +320,10 @@ def reset_drink_stats():
         user_profiles[user_id]["BAC"] = 0
         user_profiles[user_id]["highest_drink_count"] = 0
         user_profiles[user_id]["highest_BAC"] = 0
+        user_profiles[user_id]["BAC_1_7"] = 0
+        user_profiles[user_id]["BAC_2_0"] = 0
+        user_profiles[user_id]["BAC_2_3"] = 0
+        user_profiles[user_id]["BAC_2_7"] = 0
     save_profiles()
 
 def get_group_id():

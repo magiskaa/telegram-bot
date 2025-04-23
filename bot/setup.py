@@ -62,6 +62,10 @@ async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "favorite_drink_size": "ei määritetty",
             "favorite_drink_percentage": "ei määritetty",
             "favorite_drink_name": "ei määritetty",
+            "BAC_1_7": 0,
+            "BAC_2_0": 0,
+            "BAC_2_3": 0,
+            "BAC_2_7": 0
         }
         save_profiles()
     except ValueError:

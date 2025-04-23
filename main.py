@@ -1,10 +1,11 @@
 import time
 import random
 import math
+import openai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from datetime import time as datetime_time
-from config.config import BOT_TOKEN, GROUP_ID, TOP_3_GIFS
+from config.config import BOT_TOKEN, GROUP_ID, TOP_3_GIFS, OPENAI_API, ADMIN_ID
 from bot.save_and_load import save_profiles, user_profiles
 from bot.drinks import (
     drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, name_conjugation, calculate_bac, recap,
@@ -15,12 +16,17 @@ from bot.setup import (
     GENDER, AGE, HEIGHT, WEIGHT, UPDATE_GENDER, UPDATE_AGE, UPDATE_HEIGHT, UPDATE_WEIGHT, FAVORITE_SETUP
 )
 
+ASK = 1
+ANNOUNCEMENT = 1
+
+# User commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Heipat! Lasken veren alkoholipitoisuutesi🍻.\n"
         "Aloita kirjoittamalla /setup. Apua saat kirjoittamalla /help."
     )
 
+# Profile command
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
     profile = user_profiles.get(user_id)
@@ -58,10 +64,12 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="MarkdownV2"
     )
 
+# Cancel command
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Peruutettu.")
     return ConversationHandler.END
 
+# Own stats command
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
     profile = user_profiles.get(user_id)
@@ -110,7 +118,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{name_conjugation(profile['name'], 'n')} statsit\n"
         f"==========================\n"
         f"Alkoholin määrä: {drinks:.2f} annosta.\n"
-        f"Aloitus: {time.strftime('%H:%M:%S', time.localtime(profile['start_time']))}.\n"
+        f"Aloitus: {time.strftime('%H:%M:%S', time.localtime(profile['start_time'] + 3 * 3600))}.\n"
         f"Olet juonut {drinking_time_h}h {drinking_time_m}min.\n"
         f"Arvioitu BAC: {bac*10:.2f}‰.\n"
         f"{sober_text}"
@@ -126,6 +134,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(stats_text)
     return ConversationHandler.END
 
+# Own stats reset command
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
     if user_id not in user_profiles:
@@ -138,12 +147,17 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_profiles[user_id]["BAC"] = 0
     user_profiles[user_id]["highest_drink_count"] = 0
     user_profiles[user_id]["highest_BAC"] = 0
+    user_profiles[user_id]["BAC_1_7"] = 0
+    user_profiles[user_id]["BAC_2_0"] = 0
+    user_profiles[user_id]["BAC_2_3"] = 0
+    user_profiles[user_id]["BAC_2_7"] = 0
 
     save_profiles()
 
     await update.message.reply_text("Tilastot nollattu.")
     return ConversationHandler.END
 
+# Group stats command
 async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     drinkers = []
     for user in user_profiles:
@@ -171,6 +185,7 @@ async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{leaderboard}"
         )
 
+# Top 3 command
 async def top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     first = user_profiles["top_3"]["1"]
     second = user_profiles["top_3"]["2"]
@@ -190,6 +205,7 @@ async def top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption=text
     )
 
+# Help command
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
         "Käytettävissäsi olevat komennot:\n"
@@ -201,16 +217,91 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/profile - Katsele profiiliasi ja muokkaa tietojasi tarvittaessa.\n"
         "/setup - Aseta profiilisi tiedot. Sukupuoli, ikä, pituus, paino.\n"
         "/favorite_setup - Aseta lempijuomasi (esim. 0.33 4.2 kupari).\n"
+        "/friend - Kysy tekoälykaverilta jotain syvällistä. Lopeta keskustelu sanomalla 'heippa' tai komennolla /cancel."
         "/cancel - Peruuta (esim. setup taikka drink).\n"
         "/reset - Resetoi tämän illan juomatilastosi.\n"
         "/help - Näytää tämän viestin."
     )
     await update.message.reply_text(help_text)
 
+# AI friend command
+async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Mitä haluaisit kysyä? Voit lopettaa keskustelun sanomalla 'heippa' tai komennolla /cancel.")
+    return ASK
+
+async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    openai.api_key = OPENAI_API
+    message = update.message.text
+
+    if message.lower() == "heippa":
+        await update.message.reply_text("Heippa!")
+        return ConversationHandler.END
+    
+    model = "gpt-4.1-mini"
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=[
+            {"role": "user", "content": f"{message}"}
+        ],
+    )
+    await update.message.reply_text(response.choices[0].message.content)
+    return ASK
+
+# Admin commands
 async def group_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
+        return
+    
     group_id = update.effective_chat.id
     with open("config/group_id.txt", "w") as f:
         f.write(str(group_id))
+
+async def reset_top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
+        return
+    
+    user_profiles["top_3"]["1"] = {
+        "name": "ei määritetty",
+        "BAC": 0,
+        "drinks": 0,
+        "day": 0
+    }
+    user_profiles["top_3"]["2"] = {
+        "name": "ei määritetty",
+        "BAC": 0,
+        "drinks": 0,
+        "day": 0
+    }
+    user_profiles["top_3"]["3"] = {
+        "name": "ei määritetty",
+        "BAC": 0,
+        "drinks": 0,
+        "day": 0
+    }
+    save_profiles()
+    await update.message.reply_text("Top 3 resetattu.")
+    return ConversationHandler.END
+
+async def announcement_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
+        return
+    
+    await update.message.reply_text("Kirjoita ilmoitus, jonka haluat lähettää ryhmään.")
+    return ANNOUNCEMENT
+
+async def announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    announcement_text = update.message.text
+    await context.bot.send_animation(
+        chat_id=GROUP_ID,
+        animation="https://media.tenor.com/8SXy2qDXA0QAAAAi/okay-pepe.gif",
+        caption=announcement_text)
+    
+    await update.message.reply_text("Ilmoitus lähetetty ryhmään.")
+    return ConversationHandler.END
+
 
 
 def main():
@@ -218,6 +309,7 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
 
+    # Setup conversation handler
     setup_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("setup", setup), CallbackQueryHandler(button_handler)],
         states={
@@ -235,6 +327,7 @@ def main():
     )
     app.add_handler(setup_conv_handler)
 
+    # Drink conversation handler
     drink_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("drink", drink)],
         states={
@@ -245,6 +338,7 @@ def main():
     )
     app.add_handler(drink_conv_handler)
 
+    # Favorite drink conversation handler
     favorite_conv_handler = ConversationHandler(
     entry_points=[CommandHandler("favorite_setup", favorite_drink)],
     states={
@@ -254,6 +348,17 @@ def main():
     )
     app.add_handler(favorite_conv_handler)
 
+    # AI friend conversation handler
+    ask_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("friend", ask)],
+        states={
+            ASK: [MessageHandler(filters.TEXT & ~filters.COMMAND, ai_reply)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
+    )
+    app.add_handler(ask_conv_handler)
+
+    # User commands
     app.add_handler(CommandHandler("profile", profile))
     app.add_handler(CommandHandler("favorite", favorite))
     app.add_handler(CommandHandler("stats", stats))
@@ -262,11 +367,22 @@ def main():
     app.add_handler(CommandHandler("top3", top_3))
     app.add_handler(CommandHandler("help", help))
     
+    # Admin commands
+    announcement_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("announcement", announcement_input)],
+        states={
+            ANNOUNCEMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, announcement)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
+    )
+    app.add_handler(announcement_conv_handler)
+
     app.add_handler(CommandHandler("group_id", group_id))
+    app.add_handler(CommandHandler("reset_top3", reset_top_3))
 
     job_queue = app.job_queue
-    job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00
-    job_queue.run_daily(reset_drink_stats, datetime_time(hour=11, minute=0)) # This is 14:00
+    job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
+    job_queue.run_daily(reset_drink_stats, datetime_time(hour=9, minute=0, second=2)) # This is 12:00.02
 
     app.run_polling()
 
