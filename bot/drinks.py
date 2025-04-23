@@ -88,8 +88,8 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in user_profiles:
         await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
         return
-    if user_profiles[user_id]["favorite_drink_size"] == 0:
-        await update.message.reply_text("Et ole vielä määrittänyt lempijuomaasi. Käytä /favorite_drink komentoa ensin.")
+    if user_profiles[user_id]["favorite_drink_size"] == "ei määritetty":
+        await update.message.reply_text("Et ole vielä määrittänyt lempijuomaasi. Käytä /favorite_setup komentoa ensin.")
         return
 
     size = user_profiles[user_id]["favorite_drink_size"]
@@ -157,26 +157,42 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     profile = user_profiles.get(user_id)
 
     name = profile["name"].capitalize()
+    bac = profile["BAC"]
 
-    MESSAGES = [
-        f"{name_conjugation(name, 'lle').capitalize()} tulee kohta hissiefekti, ottakaa bileämpäri hollille.",
-        f"{name_conjugation(name, 'lla').capitalize()} menee nyt lujaa.",
-        f"{name_conjugation(name, 'lta').capitalize()} pullo pois!",
-        f"{name_conjugation(name, 'lle').capitalize()} ei enää tarjoilla.",
-        f"{name_conjugation(name, 'lla').capitalize()} on huomenna rapsakat tunnelmat.",
-        f"{name.capitalize()} ottaa nyt väliveden.",
-        f"Onkohan tuo {name.capitalize()} kiskonu jo ihan tarpeeks?",
-        f"{name_conjugation(name, 'lle').capitalize()} tulee kohta väsyväsy.",
-        f"{name.capitalize()} selvästi tähtää top 3 känneihin.",
-        f"{name_conjugation(name, 'lle').capitalize()} tulee morkkis.",
-        f"{name.capitalize()} ei välttämättä muista koko iltaa, mutta me muistetaan.",
-        f"{name_conjugation(name, 'lla').capitalize()} on ollu jano.",
-        f"{name.capitalize()} ei kohta enää muista omaa nimee.",
-        f"{name_conjugation(name, 'lla').capitalize()} on selkeästi nestetasapaino kohillaan.",
-        f"Onkohan {name_conjugation(name, 'lla').capitalize()} vielä huomen sama mp tästä juomatahdista?",
-        f"{name_conjugation(name, 'lle').capitalize()} nyt bileämpäri kätösiin!",
+    MESSAGES_1_7 = [
+        f"{name_conjugation(name, 'lla')} menee nyt lujaa.",
+        f"{name} ottaa nyt väliveden.",
     ]
 
+    MESSAGES_2_0 = [
+        f"{name_conjugation(name, 'lle')} tulee kohta hissiefekti, ottakaa bileämpäri hollille.",
+        f"Onkohan tuo {name} kiskonu jo ihan tarpeeks?",
+        f"{name} selvästi tähtää top 3 känneihin.",
+        f"{name_conjugation(name, 'lla')} on ollu jano.",
+        f"{name_conjugation(name, 'lla')} on selkeästi nestetasapaino kohillaan.",
+        f"Onkohan {name_conjugation(name, 'lla')} vielä huomen sama mp tästä juomatahdista?",
+        f"{name_conjugation(name, 'lla')} on huomenna rapsakat tunnelmat.",
+        f"{name} ottaa nyt väliveden.",
+    ]
+
+    MESSAGES_2_3 = [
+        f"{name_conjugation(name, 'lta')} pullo pois!",
+        f"{name_conjugation(name, 'lle')} ei enää tarjoilla.",
+        f"{name_conjugation(name, 'lle')} tulee kohta väsyväsy.",
+        f"{name_conjugation(name, 'lle')} tulee morkkis.",
+        f"{name} ei välttämättä muista koko iltaa, mutta me muistetaan.",
+        f"{name} ei kohta enää muista omaa nimee.",
+        f"{name_conjugation(name, 'lle')} nyt bileämpäri kätösiin!",
+        f"{name} ottaa nyt väliveden.",
+    ]
+
+    if bac >= 2.0 and bac < 2.3:
+        MESSAGES = MESSAGES_2_0
+    elif bac >= 2.3:
+        MESSAGES = MESSAGES_2_3
+    else:
+        MESSAGES = MESSAGES_1_7
+    
     await context.bot.send_animation(
         chat_id=GROUP_ID, 
         animation=random.choice(GIFS),
