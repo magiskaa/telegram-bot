@@ -20,6 +20,7 @@ ASK = 1
 FIRST_ASK = True
 ANNOUNCEMENT, ANSWER = range(2)
 announcement_text = ""
+saved_announcement = ""
 
 # User commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -203,7 +204,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/profile - Katsele profiiliasi ja muokkaa tietojasi tarvittaessa.\n"
         "/setup - Aseta profiilisi tiedot. Sukupuoli, ikä, pituus, paino.\n"
         "/favorite_setup - Aseta lempijuomasi (esim. 0.33 4.2 kupari).\n"
-        "/friend - Kysy tekoälykaverilta jotain syvällistä. Lopeta keskustelu sanomalla 'heippa' tai komennolla /cancel."
+        "/friend - Kysy tekoälykaverilta jotain syvällistä. Lopeta keskustelu sanomalla 'heippa' tai komennolla /cancel.\n"
         "/cancel - Peruuta (esim. setup taikka drink).\n"
         "/reset - Resetoi tämän illan juomatilastosi.\n"
         "/help - Näytää tämän viestin."
@@ -307,23 +308,36 @@ async def announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
     announcement_text = response.choices[0].message.content
     await update.message.reply_text(announcement_text)
 
-    await update.message.reply_text("Haluatko lähettää tämän ryhmään? (k/e)")
+    await update.message.reply_text("Haluatko lähettää tämän ryhmään vai laittaa säästöön? (k/e/s)")
     return ANSWER
     
-async def announcement_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global announcement_text
+async def send_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global announcement_text, saved_announcement
     answer = update.message.text
     if answer.lower() == "k":
-        #await context.bot.send_message(chat_id=GROUP_ID, text=announcement_text)
-        await update.message.reply_text(announcement_text)
+        await context.bot.send_message(chat_id=GROUP_ID, text=announcement_text)
         await update.message.reply_text("Ilmoitus lähetetty ryhmään.")
         return ConversationHandler.END
     elif answer.lower() == "e":
         await update.message.reply_text("Ilmoitus peruutettu.")
         return ConversationHandler.END
+    elif answer.lower() == "s":
+        saved_announcement = announcement_text
+        await update.message.reply_text("Ilmoitus tallennettu. Voit lähettää sen myöhemmin.")
+        return ConversationHandler.END
     else:
         await update.message.reply_text("Virheellinen syöte. Ilmoitus peruutettu.")
         return ConversationHandler.END
+
+async def send_saved_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global saved_announcement
+    if saved_announcement:
+        #await context.bot.send_message(chat_id=GROUP_ID, text=saved_announcement)
+        await update.message.reply_text(saved_announcement)
+        await update.message.reply_text("Tallennettu ilmoitus lähetetty ryhmään.")
+    else:
+        await update.message.reply_text("Ei tallennettuja ilmoituksia.")
+    return ConversationHandler.END
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -393,7 +407,7 @@ def main():
         entry_points=[CommandHandler("announcement", announcement_input)],
         states={
             ANNOUNCEMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, announcement)],
-            ANSWER: [MessageHandler(filters.TEXT & ~filters.COMMAND, announcement_to_group)]
+            ANSWER: [MessageHandler(filters.TEXT & ~filters.COMMAND, send_announcement)]
         },
         fallbacks=[CommandHandler("cancel", cancel)]
     )
@@ -401,6 +415,7 @@ def main():
 
     app.add_handler(CommandHandler("group_id", group_id))
     app.add_handler(CommandHandler("reset_top3", reset_top_3))
+    app.add_handler(CommandHandler("send_saved_announcement", send_saved_announcement))
 
     job_queue = app.job_queue
     job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
