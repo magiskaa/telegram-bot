@@ -32,8 +32,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Profile command
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
-    profile = user_profiles.get(user_id)
-    if not profile:
+    profile = user_profiles[user_id]
+    if user_id not in user_profiles:
         await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
         return
     
@@ -120,6 +120,26 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(stats_text)
     return ConversationHandler.END
+
+# Personal best command
+async def personal_best(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    profile = user_profiles[user_id]
+    if user_id not in user_profiles:
+        await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
+        return
+
+    if profile["PB_BAC"] == 0:
+        await update.message.reply_text("Ei henkilökohtaisia ennätyksiä.")
+        return
+    else:
+        pb_text = (
+            f"{name_conjugation(profile['name'], 'n')} henkilökohtaiset ennätykset\n"
+            f"==========================\n"
+            f"BAC: {profile['PB_BAC']:.2f}‰ ({profile['PB_dc']:.2f} annosta)\n"
+            f"Päivä: {profile['PB_day']}"
+        )
+        await update.message.reply_text(pb_text)
 
 # Own stats reset command
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -412,6 +432,7 @@ def main():
     app.add_handler(CommandHandler("profile", profile))
     app.add_handler(CommandHandler("favorite", favorite))
     app.add_handler(CommandHandler("stats", stats))
+    app.add_handler(CommandHandler("pb", personal_best))
     app.add_handler(CommandHandler("reset", reset))
     app.add_handler(CommandHandler("group_stats", group_stats))
     app.add_handler(CommandHandler("top3", top_3))

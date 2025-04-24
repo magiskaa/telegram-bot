@@ -34,21 +34,29 @@ async def get_percentage(update: Update, context: ContextTypes.DEFAULT_TYPE):
         percentage = float(update.message.text)
         if percentage <= 0 or percentage > 100:
             raise ValueError("Prosentti ei voi olla negatiivinen tai yli sata.")
+        
         context.user_data["percentage"] = percentage
+        
         user_id = str(update.message.from_user.id)
+        profile = user_profiles[user_id]
+
         servings = calculate_alcohol(context.user_data["size"], context.user_data["percentage"])
-        user_profiles[user_id]["drink_count"] += servings
+        profile["drink_count"] += servings
 
-        if user_profiles[user_id]["drink_count"] > user_profiles[user_id]["highest_drink_count"]:
-            user_profiles[user_id]["highest_drink_count"] = user_profiles[user_id]["drink_count"]
+        if profile["drink_count"] > profile["highest_drink_count"]:
+            profile["highest_drink_count"] = profile["drink_count"]
 
-        if user_profiles[user_id]["start_time"] == 0:
-            user_profiles[user_id]["start_time"] = time.time()
+        if profile["start_time"] == 0:
+            profile["start_time"] = time.time()
 
         calculate_bac(user_id)
 
-        if user_profiles[user_id]["BAC"] > user_profiles[user_id]["highest_BAC"]:
-            user_profiles[user_id]["highest_BAC"] = user_profiles[user_id]["BAC"]
+        if profile["BAC"] > profile["highest_BAC"]:
+            profile["highest_BAC"] = profile["BAC"]
+        if profile["BAC"] > profile["PB_BAC"]:
+            profile["PB_BAC"] = profile["BAC"]
+            profile["PB_dc"] = profile["drink_count"]
+            profile["PB_day"] = time.strftime("%d.%m.%Y")
                 
         await top_3_update(update, context)
         save_profiles()
@@ -92,26 +100,31 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Et ole vielä määrittänyt lempijuomaasi. Käytä /favorite_setup komentoa ensin.")
         return
 
-    size = user_profiles[user_id]["favorite_drink_size"]
-    percentage = user_profiles[user_id]["favorite_drink_percentage"]
+    profile = user_profiles[user_id]
+    size = profile["favorite_drink_size"]
+    percentage = profile["favorite_drink_percentage"]
     servings = calculate_alcohol(float(size), float(percentage))
-    user_profiles[user_id]["drink_count"] += servings
+    profile["drink_count"] += servings
 
-    if user_profiles[user_id]["drink_count"] > user_profiles[user_id]["highest_drink_count"]:
-        user_profiles[user_id]["highest_drink_count"] = user_profiles[user_id]["drink_count"]
+    if profile["drink_count"] > profile["highest_drink_count"]:
+        profile["highest_drink_count"] = profile["drink_count"]
 
-    if user_profiles[user_id]["start_time"] == 0:
-        user_profiles[user_id]["start_time"] = time.time()
+    if profile["start_time"] == 0:
+        profile["start_time"] = time.time()
 
     calculate_bac(user_id)
 
-    if user_profiles[user_id]["BAC"] > user_profiles[user_id]["highest_BAC"]:
-        user_profiles[user_id]["highest_BAC"] = user_profiles[user_id]["BAC"]
+    if profile["BAC"] > profile["highest_BAC"]:
+        profile["highest_BAC"] = profile["BAC"]
+    if profile["BAC"] > profile["PB_BAC"]:
+        profile["PB_BAC"] = profile["BAC"]
+        profile["PB_dc"] = profile["drink_count"]
+        profile["PB_day"] = time.strftime("%d.%m.%Y")
 
     await top_3_update(update, context)
     save_profiles()
 
-    await update.message.reply_text(f"{user_profiles[user_id]['favorite_drink_name'].capitalize()} +1.")
+    await update.message.reply_text(f"{user_profiles[user_id]['favorite_drink_name'].capitalize()} +1 ({servings} annosta).")
 
     if user_profiles[user_id]["BAC"] > 1.7:
         await message(update, context)
