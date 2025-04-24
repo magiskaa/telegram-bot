@@ -171,6 +171,8 @@ async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "\nLeaderboard tällä hetkellä:\n"
             f"{leaderboard}"
         )
+    else:
+        await update.message.reply_text("Ei juojia tällä hetkellä.")
 
 # Top 3 command
 async def top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -269,7 +271,7 @@ async def group_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     group_id = update.effective_chat.id
-    with open("config/group_id.txt", "w") as f:
+    with open("data/group_id.txt", "w") as f:
         f.write(str(group_id))
 
 async def reset_top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):

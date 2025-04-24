@@ -1,0 +1,2 @@
+python-telegram-bot==22.0
+opeanai==0.28.0

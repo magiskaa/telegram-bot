@@ -333,6 +333,6 @@ def calculate_bac(user_id, noSaving=False):
         save_profiles()
 
 def get_group_id():
-    with open("config/group_id.txt", "r") as f:
+    with open("data/group_id.txt", "r") as f:
         group_id = int(f.read().strip())
     return group_id

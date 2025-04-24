@@ -1,7 +1,7 @@
 import json
 import os
 
-PROFILE_FILE = "config/user_profiles.json"
+PROFILE_FILE = "data/user_profiles.json"
 
 def load_profiles():
     if os.path.exists(PROFILE_FILE):
