@@ -250,6 +250,19 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ASK
 
 # Admin commands
+async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
+        return
+    
+    await update.message.reply_text(
+        "Admin komennot:\n\n"
+        "/group_id\n\n"
+        "/reset_top3\n\n"
+        "/announcement\n\n"
+        "/saved_announcement"
+    )
+
 async def group_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != ADMIN_ID:
         await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
@@ -416,6 +429,7 @@ def main():
     app.add_handler(CommandHandler("group_id", group_id))
     app.add_handler(CommandHandler("reset_top3", reset_top_3))
     app.add_handler(CommandHandler("saved_announcement", send_saved_announcement))
+    app.add_handler(CommandHandler("admin", admin))
 
     job_queue = app.job_queue
     job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
