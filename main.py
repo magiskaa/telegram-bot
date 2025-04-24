@@ -265,22 +265,22 @@ async def reset_top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     user_profiles["top_3"]["1"] = {
-        "name": "ei määritetty",
+        "name": "ei kukaan",
         "BAC": 0,
         "drinks": 0,
-        "day": 0
+        "day": "ei milloinkaan"
     }
     user_profiles["top_3"]["2"] = {
-        "name": "ei määritetty",
+        "name": "ei kukaan",
         "BAC": 0,
         "drinks": 0,
-        "day": 0
+        "day": "ei milloinkaan"
     }
     user_profiles["top_3"]["3"] = {
-        "name": "ei määritetty",
+        "name": "ei kukaan",
         "BAC": 0,
         "drinks": 0,
-        "day": 0
+        "day": "ei milloinkaan"
     }
     save_profiles()
     await update.message.reply_text("Top 3 resetattu.")
@@ -332,12 +332,12 @@ async def send_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_saved_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global saved_announcement
     if saved_announcement:
-        #await context.bot.send_message(chat_id=GROUP_ID, text=saved_announcement)
-        await update.message.reply_text(saved_announcement)
-        await update.message.reply_text("Tallennettu ilmoitus lähetetty ryhmään.")
+        await context.bot.send_message(chat_id=GROUP_ID, text=saved_announcement)
+        await update.message.reply_text("Tallennettu tiedote lähetetty ryhmään.")
     else:
         await update.message.reply_text("Ei tallennettuja ilmoituksia.")
     return ConversationHandler.END
+
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -415,7 +415,7 @@ def main():
 
     app.add_handler(CommandHandler("group_id", group_id))
     app.add_handler(CommandHandler("reset_top3", reset_top_3))
-    app.add_handler(CommandHandler("send_saved_announcement", send_saved_announcement))
+    app.add_handler(CommandHandler("saved_announcement", send_saved_announcement))
 
     job_queue = app.job_queue
     job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3

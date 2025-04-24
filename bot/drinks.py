@@ -245,6 +245,22 @@ async def recap(context: CallbackContext):
     )
     await context.bot.send_message(chat_id=GROUP_ID, text=text)
 
+async def reset_drink_stats(context: CallbackContext):
+    for user_id in user_profiles:
+        if user_id == "top_3":
+            continue
+        user_profiles[user_id]["drink_count"] = 0
+        user_profiles[user_id]["start_time"] = 0
+        user_profiles[user_id]["elapsed_time"] = 0
+        user_profiles[user_id]["BAC"] = 0
+        user_profiles[user_id]["highest_drink_count"] = 0
+        user_profiles[user_id]["highest_BAC"] = 0
+        user_profiles[user_id]["BAC_1_7"] = 0
+        user_profiles[user_id]["BAC_2_0"] = 0
+        user_profiles[user_id]["BAC_2_3"] = 0
+        user_profiles[user_id]["BAC_2_7"] = 0
+    save_profiles()
+
 def name_conjugation(name, ending):
     name = name.strip()
     if ending == "lle":
@@ -315,20 +331,6 @@ def calculate_bac(user_id, noSaving=False):
     else:
         profile["BAC"] = bac * 10
         save_profiles()
-
-def reset_drink_stats():
-    for user_id in user_profiles:
-        user_profiles[user_id]["drink_count"] = 0
-        user_profiles[user_id]["start_time"] = 0
-        user_profiles[user_id]["elapsed_time"] = 0
-        user_profiles[user_id]["BAC"] = 0
-        user_profiles[user_id]["highest_drink_count"] = 0
-        user_profiles[user_id]["highest_BAC"] = 0
-        user_profiles[user_id]["BAC_1_7"] = 0
-        user_profiles[user_id]["BAC_2_0"] = 0
-        user_profiles[user_id]["BAC_2_3"] = 0
-        user_profiles[user_id]["BAC_2_7"] = 0
-    save_profiles()
 
 def get_group_id():
     with open("config/group_id.txt", "r") as f:
