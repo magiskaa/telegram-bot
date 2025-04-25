@@ -1,8 +1,10 @@
 import time
 import random
+import math
 from bot.save_and_load import save_profiles, user_profiles
-from config.config import GIFS, GROUP_ID
+from config.config import GIFS, GROUP_ID, ADMIN_ID
 from telegram import Update
+import telegram
 from telegram.ext import ContextTypes, ConversationHandler, CallbackContext
 
 SIZE, PERCENTAGE = range(2)
@@ -43,28 +45,31 @@ async def get_percentage(update: Update, context: ContextTypes.DEFAULT_TYPE):
         servings = calculate_alcohol(context.user_data["size"], context.user_data["percentage"])
         profile["drink_count"] += servings
 
-        if profile["drink_count"] > profile["highest_drink_count"]:
-            profile["highest_drink_count"] = profile["drink_count"]
+        current_time = time.time()
+        size = context.user_data["size"]
+        if size <= 0.06:
+            time_adjustment = 1 * 60
+        elif size <= 0.33:
+            time_adjustment = 10 * 60
+        elif size <= 0.5:
+            time_adjustment = 15 * 60
+        else:
+            time_adjustment = 20 * 60
+
+        profile["drink_history"].append({
+            "size": context.user_data["size"],
+            "percentage": context.user_data["percentage"],
+            "servings": servings,
+            "timestamp": current_time - time_adjustment
+        })
+        save_profiles()
 
         if profile["start_time"] == 0:
-            profile["start_time"] = time.time()
+            profile["start_time"] = current_time - time_adjustment
 
-        calculate_bac(user_id)
-
-        if profile["BAC"] > profile["highest_BAC"]:
-            profile["highest_BAC"] = profile["BAC"]
-        if profile["BAC"] > profile["PB_BAC"]:
-            profile["PB_BAC"] = profile["BAC"]
-            profile["PB_dc"] = profile["drink_count"]
-            profile["PB_day"] = time.strftime("%d.%m.%Y")
-                
-        await top_3_update(update, context)
-        save_profiles()
+        await calculate_bac(update, context, user_id)
         
-        await update.message.reply_text(f"Lisätty {servings} annosta.")
-        
-        if user_profiles[user_id]["BAC"] > 1.7:
-            await message(update, context)
+        await update.message.reply_text(f"Lisätty {servings} annosta.\n BAC: {profile['BAC']:.3f}‰")
         
         return ConversationHandler.END
     except ValueError:
@@ -101,37 +106,69 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     profile = user_profiles[user_id]
-    size = profile["favorite_drink_size"]
-    percentage = profile["favorite_drink_percentage"]
-    servings = calculate_alcohol(float(size), float(percentage))
+    size = float(profile["favorite_drink_size"])
+    percentage = float(profile["favorite_drink_percentage"])
+    servings = calculate_alcohol(size, percentage)
     profile["drink_count"] += servings
 
-    if profile["drink_count"] > profile["highest_drink_count"]:
-        profile["highest_drink_count"] = profile["drink_count"]
+    current_time = time.time()
+    if size <= 0.06:
+        time_adjustment = 1 * 60
+    elif size <= 0.33:
+        time_adjustment = 10 * 60
+    elif size <= 0.5:
+        time_adjustment = 15 * 60
+    else:
+        time_adjustment = 20 * 60
 
-    if profile["start_time"] == 0:
-        profile["start_time"] = time.time()
-
-    calculate_bac(user_id)
-
-    if profile["BAC"] > profile["highest_BAC"]:
-        profile["highest_BAC"] = profile["BAC"]
-    if profile["BAC"] > profile["PB_BAC"]:
-        profile["PB_BAC"] = profile["BAC"]
-        profile["PB_dc"] = profile["drink_count"]
-        profile["PB_day"] = time.strftime("%d.%m.%Y")
-
-    await top_3_update(update, context)
+    profile["drink_history"].append({
+        "size": size,
+        "percentage": percentage,
+        "servings": servings,
+        "timestamp": current_time - time_adjustment
+    })
     save_profiles()
 
-    await update.message.reply_text(f"{user_profiles[user_id]['favorite_drink_name'].capitalize()} +1 ({servings} annosta).")
+    if profile["start_time"] == 0:
+        profile["start_time"] = current_time - time_adjustment
 
-    if user_profiles[user_id]["BAC"] > 1.7:
-        await message(update, context)
+    await calculate_bac(update, context, user_id)
 
-async def top_3_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
-    profile = user_profiles.get(user_id)
+    await update.message.reply_text(
+        f"{user_profiles[user_id]['favorite_drink_name'].capitalize()} +1 "
+        f"({servings} annosta).\n BAC: {profile['BAC']:.3f}‰"
+    )
+
+async def bac_update(context: CallbackContext):
+    drinkers = []
+    for user_id in user_profiles:
+        if user_id == "top_3":
+            continue
+        drinkers.append(user_id)
+
+    if len(drinkers) != 0:
+        for user_id in user_profiles:
+            if user_id == "top_3":
+                continue
+            profile = user_profiles[user_id]
+            if profile["start_time"] != 0:
+                await calculate_bac(None, context, user_id)
+                if profile["BAC"] > profile["highest_BAC"]:
+                    profile["highest_BAC"] = profile["BAC"]
+                    profile["highest_drink_count"] = profile["drink_count"]
+                if profile["BAC"] > profile["PB_BAC"]:
+                    profile["PB_BAC"] = profile["BAC"]
+                    profile["PB_dc"] = profile["drink_count"]
+                    profile["PB_day"] = time.strftime("%d.%m.%Y")
+                await top_3_update(None, context, user_id)
+                if profile["BAC"] > 1.7:
+                    await message(None, context, user_id)
+    else:
+        return
+
+async def top_3_update(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
+    profile = user_profiles[user_id]
+
     BAC = profile["BAC"]
     name = profile["name"].capitalize()
     drinks = profile["drink_count"]
@@ -164,10 +201,10 @@ async def top_3_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "drinks": 0,
                 "day": "ei milloinkaan",
             }
+    save_profiles()
 
-async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
-    profile = user_profiles.get(user_id)
+async def message(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
+    profile = user_profiles[user_id]
 
     name = profile["name"].capitalize()
     bac = profile["BAC"]
@@ -206,7 +243,7 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if bac >= 1.7 and bac < 2.0 and profile["BAC_1_7"] == 0:
         profile["BAC_1_7"] = 1
         MESSAGES = MESSAGES_1_7
-    if bac >= 2.0 and bac < 2.3 and profile["BAC_2_0"] == 0:
+    elif bac >= 2.0 and bac < 2.3 and profile["BAC_2_0"] == 0:
         profile["BAC_2_0"] = 1
         MESSAGES = MESSAGES_2_0
     elif bac >= 2.3 and bac < 2.7 and profile["BAC_2_3"] == 0:
@@ -218,11 +255,13 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         return
     
-    await context.bot.send_animation(
-        chat_id=GROUP_ID, 
-        animation=random.choice(GIFS),
-        caption=random.choice(MESSAGES) + f" {profile['BAC']:.2f}‰")
-    return ConversationHandler.END
+    try:
+        await context.bot.send_animation(
+            chat_id=GROUP_ID, 
+            animation=random.choice(GIFS),
+            caption=random.choice(MESSAGES) + f" {profile['BAC']:.2f}‰")
+    except telegram.error.TimedOut:
+        await context.bot.send_message(chat_id=ADMIN_ID, text="Viestin lähetys epäonnistui aikakatkaisun vuoksi.")
 
 async def recap(context: CallbackContext):
     drinkers = []
@@ -256,7 +295,10 @@ async def recap(context: CallbackContext):
         "\nLeaderboard:\n"
         f"{leaderboard}"
     )
-    await context.bot.send_message(chat_id=GROUP_ID, text=text)
+    try:
+        await context.bot.send_message(chat_id=GROUP_ID, text=text)
+    except telegram.error.TimedOut:
+        await context.bot.send_message(chat_id=ADMIN_ID, text="Recap viestin lähetys epäonnistui aikakatkaisun vuoksi.")
 
 async def reset_drink_stats(context: CallbackContext):
     for user_id in user_profiles:
@@ -272,6 +314,8 @@ async def reset_drink_stats(context: CallbackContext):
         user_profiles[user_id]["BAC_2_0"] = 0
         user_profiles[user_id]["BAC_2_3"] = 0
         user_profiles[user_id]["BAC_2_7"] = 0
+        user_profiles[user_id]["drink_history"] = []
+    
     save_profiles()
 
 def name_conjugation(name, ending):
@@ -308,42 +352,77 @@ def name_conjugation(name, ending):
             return name[:-2] + "in"
         else:
             return name + "n"
+    else:
+        return name + ending
 
 def calculate_alcohol(vol, perc):
     pure_alcohol = vol * (perc / 100) * 789
     servings = pure_alcohol / 12
     return round(servings, 2)
 
-def calculate_bac(user_id, noSaving=False):
+async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id, noSaving=False):
     profile = user_profiles[user_id]
 
     profile["elapsed_time"] = time.time() - profile["start_time"]
     drinking_time = profile["elapsed_time"] / 3600
     
-    drinks = profile["drink_count"]
     weight = profile["weight"]
     gender = profile["gender"]
     age = profile["age"]
     height = profile["height"]
+
     if gender == "mies":
         TBW = 2.447 - 0.09516 * age + 0.1074 * height + 0.3362 * weight
     else:
         TBW = -2.097 + 0.1069 * height + 0.2466 * weight
+
     r = TBW / weight
-    total_grams_of_alcohol = drinks * 12
+
+    absorbed_grams = await calculate_absorption(update, context, user_id)
     
-    bac = total_grams_of_alcohol / (weight*1000 * r) * 100
+    if drinking_time < 0.25:
+        elimination_factor = drinking_time / 0.25
+        elimination_time = drinking_time * elimination_factor
+    else:
+        elimination_time = drinking_time
+
+    bac = absorbed_grams / (weight*1000 * r) * 100
     grams_per_kg = 0.1 * weight
     bac_elim = grams_per_kg / (weight*1000 * r) * 100
-    bac -= bac_elim * drinking_time
+    bac -= bac_elim * elimination_time
     bac = max(0, bac)
 
     if noSaving:
         profile["BAC"] = bac
+        context.user_data["max_BAC"] = profile["drink_count"] * 12 / (weight*1000 * r) * 100
         return bac_elim
     else:
         profile["BAC"] = bac * 10
         save_profiles()
+
+async def calculate_absorption(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
+    profile = user_profiles[user_id]
+    current_time = time.time()
+    weight = profile["weight"]
+    gender_factor = 1.0 if profile["gender"] == "mies" else 1.15
+
+    total_absorbed = 0
+
+    for drink in profile["drink_history"]:
+        drink_elapsed_time = (current_time - drink["timestamp"]) / 3600
+        
+        k = 1.14 * (64/weight)**0.25 * gender_factor
+
+        c = drink["percentage"]
+        concentration_factor = 0.8 + (c * (40 - c)) / 200
+        k *= concentration_factor
+
+        drink_grams = drink["servings"] * 12
+        absorbed_grams = drink_grams * (1 - math.e**(-k * drink_elapsed_time**1.25))
+
+        total_absorbed += absorbed_grams
+
+    return total_absorbed
 
 def get_group_id():
     with open("data/group_id.txt", "r") as f:

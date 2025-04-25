@@ -68,7 +68,8 @@ async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "BAC_2_7": 0,
             "PB_BAC": 0,
             "PB_dc": 0,
-            "PB_day": 0
+            "PB_day": 0,
+            "drink_history": []
         }
         save_profiles()
     except ValueError:

@@ -8,7 +8,7 @@ from datetime import time as datetime_time
 from config.config import BOT_TOKEN, GROUP_ID, TOP_3_GIFS, OPENAI_API, ADMIN_ID, ANNOUNCEMENT_TEXT
 from bot.save_and_load import save_profiles, user_profiles
 from bot.drinks import (
-    drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, name_conjugation, calculate_bac, recap,
+    drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, name_conjugation, calculate_bac, recap, bac_update,
     SIZE, PERCENTAGE, FAVORITE
 )
 from bot.setup import (
@@ -85,14 +85,14 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Et ole vielä aloittanut juomista.")
         return
     
-    bac_elim = calculate_bac(user_id, noSaving=True)
+    bac_elim = await calculate_bac(update, context, user_id, noSaving=True)
 
     bac = profile["BAC"]
     drinking_time = profile["elapsed_time"] / 3600
     drinks = profile["drink_count"]
     
     if bac > 0:
-        hours_until_sober = bac / bac_elim
+        hours_until_sober = context.user_data["max_BAC"] / bac_elim
         sober_timestamp = time.time() + (hours_until_sober * 3600)
         sober_time_str = time.strftime("%H:%M", time.gmtime(sober_timestamp + 3 * 3600))
         sober_text = f"Selvinpäin olet noin klo {sober_time_str}."
@@ -105,9 +105,9 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{name_conjugation(profile['name'], 'n')} statsit\n"
         f"==========================\n"
         f"Alkoholin määrä: {drinks:.2f} annosta.\n"
-        f"Aloitus: {time.strftime('%H:%M:%S', time.localtime(profile['start_time'] + 3 * 3600))}.\n"
+        f"Aloitus: {time.strftime('%H:%M:%S', time.gmtime(profile['start_time'] + 3 * 3600))}.\n"
         f"Olet juonut {drinking_time_h}h {drinking_time_m}min.\n"
-        f"Arvioitu BAC: {bac*10:.2f}‰.\n"
+        f"Arvioitu BAC: {bac*10:.3f}‰.\n"
         f"{sober_text}"
     )
 
@@ -119,7 +119,6 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_profiles()
 
     await update.message.reply_text(stats_text)
-    return ConversationHandler.END
 
 # Personal best command
 async def personal_best(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -158,11 +157,43 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_profiles[user_id]["BAC_2_0"] = 0
     user_profiles[user_id]["BAC_2_3"] = 0
     user_profiles[user_id]["BAC_2_7"] = 0
+    user_profiles[user_id]["drink_history"] = []
 
     save_profiles()
 
     await update.message.reply_text("Tilastot nollattu.")
-    return ConversationHandler.END
+
+# Drink history command
+async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    profile = user_profiles[user_id]
+    if user_id not in user_profiles:
+        await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
+        return
+
+    if len(profile["drink_history"]) == 0:
+        await update.message.reply_text("Ei juomahistoriaa.")
+        return
+
+    history_text = (
+        f"{name_conjugation(profile['name'], 'n')} juomahistoria\n"
+        "==========================\n"
+    )
+    for i, drink in enumerate(profile["drink_history"], 1):
+        if drink['size'] <= 0.06:
+            time_adjustment = 1 * 60
+        elif drink['size'] <= 0.33:
+            time_adjustment = 10 * 60
+        elif drink['size'] <= 0.5:
+            time_adjustment = 15 * 60
+        else:
+            time_adjustment = 20 * 60
+        history_text += (
+            f"{i}. {drink['size']}l {drink['percentage']}% ({drink['servings']} annosta)\n"
+            f"Juoman lopetus: {time.strftime('%H:%M:%S', time.gmtime(drink['timestamp'] + 3 * 3600 + time_adjustment))}\n\n"
+        )
+
+    await update.message.reply_text(history_text)
 
 # Group stats command
 async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -174,7 +205,7 @@ async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if profile["drink_count"] == 0:
             continue
         else:
-            calculate_bac(user)
+            await calculate_bac(update, context, user)
             drinkers.append(profile)
 
     leaderboard = ""
@@ -221,6 +252,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "\n/drink - Syötä vapaavalintainen juoma. Ensiksi juoman koko ja sen jälkeen prosentit. Voit vähentää juoman asettamalla juoman koon negatiiviseksi.\n"
         "/favorite - Syötä lempijuomasi.\n"
         "/stats - Katsele omia tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
+        "/pb - Katsele omaa henkilökohtaista ennätystä.\n"
         "/group_stats - Katsele ryhmän tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
         "/top3 - Katsele Top 3 kännit -listaa. Lähettää listan ryhmään.\n"
         "/profile - Katsele profiiliasi ja muokkaa tietojasi tarvittaessa.\n"
@@ -319,7 +351,6 @@ async def reset_top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
     save_profiles()
     await update.message.reply_text("Top 3 resetattu.")
-    return ConversationHandler.END
 
 async def announcement_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != ADMIN_ID:
@@ -370,8 +401,7 @@ async def send_saved_announcement(update: Update, context: ContextTypes.DEFAULT_
         await context.bot.send_message(chat_id=GROUP_ID, text=saved_announcement)
         await update.message.reply_text("Tallennettu tiedote lähetetty ryhmään.")
     else:
-        await update.message.reply_text("Ei tallennettuja ilmoituksia.")
-    return ConversationHandler.END
+        await update.message.reply_text("Ei tallennettuja tiedotteita.")
 
 
 def main():
@@ -433,6 +463,7 @@ def main():
     app.add_handler(CommandHandler("favorite", favorite))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("pb", personal_best))
+    app.add_handler(CommandHandler("drinks", drink_history))
     app.add_handler(CommandHandler("reset", reset))
     app.add_handler(CommandHandler("group_stats", group_stats))
     app.add_handler(CommandHandler("top3", top_3))
@@ -457,6 +488,7 @@ def main():
     job_queue = app.job_queue
     job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
     job_queue.run_daily(reset_drink_stats, datetime_time(hour=9, minute=0, second=2)) # This is 12:00.02
+    job_queue.run_repeating(bac_update, interval=60, first=0)
 
     app.run_polling()
 
