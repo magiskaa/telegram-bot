@@ -110,11 +110,6 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Arvioitu BAC: {bac*10:.3f}‰.\n"
         f"{sober_text}"
     )
-
-    if profile["BAC"] == 0:
-        profile["start_time"] = 0
-        profile["elapsed_time"] = 0
-        profile["drink_count"] = 0
     
     save_profiles()
 
@@ -129,12 +124,12 @@ async def personal_best(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if profile["PB_BAC"] == 0:
-        await update.message.reply_text("Ei henkilökohtaisia ennätyksiä.")
+        await update.message.reply_text("Ei henkilökohtaista ennätystä.")
         return
     else:
         pb_text = (
-            f"{name_conjugation(profile['name'], 'n')} henkilökohtaiset ennätykset\n"
-            f"==========================\n"
+            f"{name_conjugation(profile['name'], 'n')} henkilökohtainen ennätys\n"
+            f"=============================\n"
             f"BAC: {profile['PB_BAC']:.2f}‰ ({profile['PB_dc']:.2f} annosta)\n"
             f"Päivä: {profile['PB_day']}"
         )

@@ -45,6 +45,12 @@ async def get_percentage(update: Update, context: ContextTypes.DEFAULT_TYPE):
         servings = calculate_alcohol(context.user_data["size"], context.user_data["percentage"])
         profile["drink_count"] += servings
 
+        if context.user_data["size"] < 0:
+            for drink in reversed(profile["drink_history"]):
+                if drink["size"] == abs(context.user_data["size"]) and drink["percentage"] == context.user_data["percentage"]:
+                    profile["drink_history"].remove(drink)
+                    break
+
         current_time = time.time()
         size = context.user_data["size"]
         if size <= 0.06:
@@ -380,7 +386,7 @@ async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user
 
     absorbed_grams = await calculate_absorption(update, context, user_id)
     
-    if drinking_time < 0.25:
+    if drinking_time < 0.75:
         elimination_factor = drinking_time / 0.25
         elimination_time = drinking_time * elimination_factor
     else:
@@ -411,15 +417,28 @@ async def calculate_absorption(update: Update, context: ContextTypes.DEFAULT_TYP
     for drink in profile["drink_history"]:
         drink_elapsed_time = (current_time - drink["timestamp"]) / 3600
         
-        k = 1.14 * (64/weight)**0.25 * gender_factor
+        k = 3 * (64/weight)**0.25 * gender_factor
 
         c = drink["percentage"]
-        concentration_factor = 0.8 + (c * (40 - c)) / 200
+        if c <= 4:
+            concentration_factor = 0.9
+        elif 4 < c < 20:
+            concentration_factor = 0.9 + (c - 4) * (1.2 - 0.9) / (20 - 4)
+        elif 20 <= c <= 30:
+            concentration_factor = 1.2
+        elif 30 < c <= 60:
+            concentration_factor = 1.2 - (c - 30) * (1.2 - 0.9) / (60 - 30)
+        else:  # c > 60
+            concentration_factor = 0.9
+
         k *= concentration_factor
 
         drink_grams = drink["servings"] * 12
-        absorbed_grams = drink_grams * (1 - math.e**(-k * drink_elapsed_time**1.25))
+        absorbed_grams = drink_grams * (1 - math.e**(-k * drink_elapsed_time**1.1))
 
+        if drink_elapsed_time > 2:
+            absorbed_grams = drink_grams
+        
         total_absorbed += absorbed_grams
 
     return total_absorbed
