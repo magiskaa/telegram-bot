@@ -46,10 +46,21 @@ async def get_percentage(update: Update, context: ContextTypes.DEFAULT_TYPE):
         profile["drink_count"] += servings
 
         if context.user_data["size"] < 0:
+            if profile["highest_BAC"] > 0.1:
+                profile["highest_BAC"] -= 0.1
+            else:
+                profile["highest_BAC"] = 0.0 
             for drink in reversed(profile["drink_history"]):
                 if drink["size"] == abs(context.user_data["size"]) and drink["percentage"] == context.user_data["percentage"]:
                     profile["drink_history"].remove(drink)
+                    profile["BAC"] = await calculate_bac(update, context, user_id)
                     break
+
+            await update.message.reply_text(
+                f"Poistettu juoma: {abs(context.user_data['size'])}l {context.user_data['percentage']}% "
+                f"({abs(servings)} annosta).\nBAC: {profile['BAC']:.3f}‰"
+            )
+            return ConversationHandler.END
 
         current_time = time.time()
         size = context.user_data["size"]
@@ -75,7 +86,7 @@ async def get_percentage(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await calculate_bac(update, context, user_id)
         
-        await update.message.reply_text(f"Lisätty {servings} annosta.\n BAC: {profile['BAC']:.3f}‰")
+        await update.message.reply_text(f"Lisätty {servings} annosta.\nBAC: {profile['BAC']:.3f}‰")
         
         return ConversationHandler.END
     except ValueError:
@@ -94,11 +105,16 @@ async def favorite_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
     favorite = update.message.text
     favorite_size, favorite_percentage, favorite_name = favorite.split()
+
     user_id = str(update.message.from_user.id)
-    user_profiles[user_id]["favorite_drink_size"] = favorite_size
-    user_profiles[user_id]["favorite_drink_percentage"] = favorite_percentage
-    user_profiles[user_id]["favorite_drink_name"] = favorite_name
+    profile = user_profiles[user_id]
+
+    profile["favorite_drink_size"] = favorite_size
+    profile["favorite_drink_percentage"] = favorite_percentage
+    profile["favorite_drink_name"] = favorite_name
+
     save_profiles()
+
     await update.message.reply_text(f"Lempijuomasi on nyt {favorite_name}.")
     return ConversationHandler.END
 
@@ -145,32 +161,48 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"({servings} annosta).\n BAC: {profile['BAC']:.3f}‰"
     )
 
-async def bac_update(context: CallbackContext):
-    drinkers = []
-    for user_id in user_profiles:
-        if user_id == "top_3":
-            continue
-        drinkers.append(user_id)
-
-    if len(drinkers) != 0:
-        for user_id in user_profiles:
-            if user_id == "top_3":
-                continue
-            profile = user_profiles[user_id]
-            if profile["start_time"] != 0:
-                await calculate_bac(None, context, user_id)
-                if profile["BAC"] > profile["highest_BAC"]:
-                    profile["highest_BAC"] = profile["BAC"]
-                    profile["highest_drink_count"] = profile["drink_count"]
-                if profile["BAC"] > profile["PB_BAC"]:
-                    profile["PB_BAC"] = profile["BAC"]
-                    profile["PB_dc"] = profile["drink_count"]
-                    profile["PB_day"] = time.strftime("%d.%m.%Y")
-                await top_3_update(None, context, user_id)
-                if profile["BAC"] > 1.7:
-                    await message(None, context, user_id)
-    else:
+async def delete_last_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    if user_id not in user_profiles:
+        await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
         return
+
+    profile = user_profiles[user_id]
+    if len(profile["drink_history"]) == 0:
+        await update.message.reply_text("Ei juomia poistettavaksi.")
+        return
+
+    profile["drink_count"] -= profile["drink_history"][-1]["servings"]
+
+    profile["drink_history"].pop()
+
+    if len(profile["drink_history"]) == 0:
+        profile["drink_count"] = 0
+        profile["start_time"] = 0
+        profile["elapsed_time"] = 0
+        profile["BAC"] = 0
+        profile["highest_BAC"] = 0
+    else:
+        profile["BAC"] = await calculate_bac(update, context, user_id)
+
+    await update.message.reply_text("Viimeisin juoma poistettu.")
+
+async def bac_update(context: CallbackContext):
+    for user_id in user_profiles:
+        if user_id == "top_3" or user_profiles[user_id]["start_time"] == 0:
+            continue
+        else:
+            profile = user_profiles[user_id]
+            await calculate_bac(None, context, user_id)
+            if profile["BAC"] > profile["highest_BAC"]:
+                profile["highest_BAC"] = profile["BAC"]
+            if profile["BAC"] > profile["PB_BAC"]:
+                profile["PB_BAC"] = profile["BAC"]
+                profile["PB_dc"] = profile["drink_count"]
+                profile["PB_day"] = time.strftime("%d.%m.%Y")
+            await top_3_update(None, context, user_id)
+            if profile["BAC"] > 1.7:
+                await message(None, context, user_id)
 
 async def top_3_update(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
     profile = user_profiles[user_id]
@@ -274,7 +306,7 @@ async def recap(context: CallbackContext):
     for user in user_profiles:
         if user != "top_3":
             profile = user_profiles[user]
-            if profile["highest_drink_count"] > 0:
+            if profile["drink_count"] > 0:
                 drinkers.append(profile)
     
     if len(drinkers) == 0:
@@ -291,13 +323,13 @@ async def recap(context: CallbackContext):
             text = "Top 3!"
         else:
             text = ""
-        leaderboard += f"{i}. {profile['name']} {profile['highest_BAC']:.2f}‰ ({profile['highest_drink_count']:.2f} annosta) {text}\n"
+        leaderboard += f"{i}. {profile['name']} {profile['highest_BAC']:.2f}‰ ({profile['drink_count']:.2f} annosta) {text}\n"
 
     text = (
         "Eilisen juomatilastot:\n"
         "==========================\n"
         f"Juojia: {len(drinkers)}\n"
-        f"Alkoholia juotu: {sum([profile['highest_drink_count'] for profile in drinkers]):.2f} annosta.\n"
+        f"Alkoholia juotu: {sum([profile['drink_count'] for profile in drinkers]):.2f} annosta.\n"
         "\nLeaderboard:\n"
         f"{leaderboard}"
     )
@@ -310,17 +342,17 @@ async def reset_drink_stats(context: CallbackContext):
     for user_id in user_profiles:
         if user_id == "top_3":
             continue
-        user_profiles[user_id]["drink_count"] = 0
-        user_profiles[user_id]["start_time"] = 0
-        user_profiles[user_id]["elapsed_time"] = 0
-        user_profiles[user_id]["BAC"] = 0
-        user_profiles[user_id]["highest_drink_count"] = 0
-        user_profiles[user_id]["highest_BAC"] = 0
-        user_profiles[user_id]["BAC_1_7"] = 0
-        user_profiles[user_id]["BAC_2_0"] = 0
-        user_profiles[user_id]["BAC_2_3"] = 0
-        user_profiles[user_id]["BAC_2_7"] = 0
-        user_profiles[user_id]["drink_history"] = []
+        profile = user_profiles[user_id]
+        profile["drink_count"] = 0
+        profile["start_time"] = 0
+        profile["elapsed_time"] = 0
+        profile["BAC"] = 0
+        profile["highest_BAC"] = 0
+        profile["BAC_1_7"] = 0
+        profile["BAC_2_0"] = 0
+        profile["BAC_2_3"] = 0
+        profile["BAC_2_7"] = 0
+        profile["drink_history"] = []
     
     save_profiles()
 

@@ -8,7 +8,7 @@ from datetime import time as datetime_time
 from config.config import BOT_TOKEN, GROUP_ID, TOP_3_GIFS, OPENAI_API, ADMIN_ID, ANNOUNCEMENT_TEXT
 from bot.save_and_load import save_profiles, user_profiles
 from bot.drinks import (
-    drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, name_conjugation, calculate_bac, recap, bac_update,
+    drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, delete_last_drink, name_conjugation, calculate_bac, recap, bac_update,
     SIZE, PERCENTAGE, FAVORITE
 )
 from bot.setup import (
@@ -92,6 +92,13 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     drinks = profile["drink_count"]
     
     if bac > 0:
+        if drinking_time < 0.75:
+            elimination_factor = drinking_time / 0.25
+            elimination_time = drinking_time * elimination_factor
+        else:
+            elimination_time = drinking_time
+
+        context.user_data["max_BAC"] -= bac_elim * elimination_time
         hours_until_sober = context.user_data["max_BAC"] / bac_elim
         sober_timestamp = time.time() + (hours_until_sober * 3600)
         sober_time_str = time.strftime("%H:%M", time.gmtime(sober_timestamp + 3 * 3600))
@@ -146,7 +153,6 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_profiles[user_id]["start_time"] = 0
     user_profiles[user_id]["elapsed_time"] = 0
     user_profiles[user_id]["BAC"] = 0
-    user_profiles[user_id]["highest_drink_count"] = 0
     user_profiles[user_id]["highest_BAC"] = 0
     user_profiles[user_id]["BAC_1_7"] = 0
     user_profiles[user_id]["BAC_2_0"] = 0
@@ -248,12 +254,14 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/favorite - Syötä lempijuomasi.\n"
         "/stats - Katsele omia tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
         "/pb - Katsele omaa henkilökohtaista ennätystä.\n"
+        "/drinks - Katsele omaa tämän iltaista juomahistoriaa.\n"
         "/group_stats - Katsele ryhmän tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
         "/top3 - Katsele Top 3 kännit -listaa. Lähettää listan ryhmään.\n"
         "/profile - Katsele profiiliasi ja muokkaa tietojasi tarvittaessa.\n"
         "/setup - Aseta profiilisi tiedot. Sukupuoli, ikä, pituus, paino.\n"
         "/favorite_setup - Aseta lempijuomasi (esim. 0.33 4.2 kupari).\n"
         "/friend - Kysy tekoälykaverilta jotain syvällistä. Lopeta keskustelu sanomalla 'heippa' tai komennolla /cancel.\n"
+        "/delete - Poista viimeisin lisäämäsi juoma.\n"
         "/cancel - Peruuta (esim. setup taikka drink).\n"
         "/reset - Resetoi tämän illan juomatilastosi.\n"
         "/help - Näytää tämän viestin."
@@ -462,6 +470,7 @@ def main():
     app.add_handler(CommandHandler("reset", reset))
     app.add_handler(CommandHandler("group_stats", group_stats))
     app.add_handler(CommandHandler("top3", top_3))
+    app.add_handler(CommandHandler("delete", delete_last_drink))
     app.add_handler(CommandHandler("help", help))
     
     # Admin commands
