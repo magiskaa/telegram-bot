@@ -92,13 +92,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     drinks = profile["drink_count"]
     
     if bac > 0:
-        if drinking_time < 0.75:
-            elimination_factor = drinking_time / 0.25
-            elimination_time = drinking_time * elimination_factor
-        else:
-            elimination_time = drinking_time
-
-        context.user_data["max_BAC"] -= bac_elim * elimination_time
+        context.user_data["max_BAC"] -= bac_elim * drinking_time
         hours_until_sober = context.user_data["max_BAC"] / bac_elim
         sober_timestamp = time.time() + (hours_until_sober * 3600)
         sober_time_str = time.strftime("%H:%M", time.gmtime(sober_timestamp + 3 * 3600))
@@ -492,7 +486,7 @@ def main():
     job_queue = app.job_queue
     job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
     job_queue.run_daily(reset_drink_stats, datetime_time(hour=9, minute=0, second=2)) # This is 12:00.02
-    job_queue.run_repeating(bac_update, interval=60, first=0)
+    job_queue.run_repeating(bac_update, interval=3, first=0)
 
     app.run_polling()
 

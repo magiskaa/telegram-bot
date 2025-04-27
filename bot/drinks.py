@@ -158,7 +158,7 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"{user_profiles[user_id]['favorite_drink_name'].capitalize()} +1 "
-        f"({servings} annosta).\n BAC: {profile['BAC']:.3f}‰"
+        f"({servings} annosta).\nBAC: {profile['BAC']:.3f}‰"
     )
 
 async def delete_last_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -182,6 +182,7 @@ async def delete_last_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         profile["elapsed_time"] = 0
         profile["BAC"] = 0
         profile["highest_BAC"] = 0
+        save_profiles()
     else:
         profile["BAC"] = await calculate_bac(update, context, user_id)
 
@@ -207,7 +208,7 @@ async def bac_update(context: CallbackContext):
 async def top_3_update(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
     profile = user_profiles[user_id]
 
-    BAC = profile["BAC"]
+    bac = profile["BAC"]
     name = profile["name"].capitalize()
     drinks = profile["drink_count"]
     day = time.strftime("%d.%m.%Y")
@@ -215,14 +216,14 @@ async def top_3_update(update: Update, context: ContextTypes.DEFAULT_TYPE, user_
     top_3_candidates = []
     for pos in ["1", "2", "3"]:
         current_user = user_profiles["top_3"][pos]
-        if current_user["name"] == name and current_user["BAC"] > BAC:
+        if current_user["name"] == name and current_user["BAC"] > bac:
             return
         elif current_user["name"] != "ei kukaan" and current_user["name"] != name:
             top_3_candidates.append(current_user)
 
     top_3_candidates.append({
         "name": name,
-        "BAC": BAC,
+        "BAC": bac,
         "drinks": drinks,
         "day": day,
     })
@@ -418,8 +419,8 @@ async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user
 
     absorbed_grams = await calculate_absorption(update, context, user_id)
     
-    if drinking_time < 0.75:
-        elimination_factor = drinking_time / 0.25
+    if drinking_time < 0.6:
+        elimination_factor = drinking_time / 0.6
         elimination_time = drinking_time * elimination_factor
     else:
         elimination_time = drinking_time
@@ -460,7 +461,7 @@ async def calculate_absorption(update: Update, context: ContextTypes.DEFAULT_TYP
             concentration_factor = 1.2
         elif 30 < c <= 60:
             concentration_factor = 1.2 - (c - 30) * (1.2 - 0.9) / (60 - 30)
-        else:  # c > 60
+        else:
             concentration_factor = 0.9
 
         k *= concentration_factor
