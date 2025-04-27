@@ -1,9 +1,11 @@
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from bot.save_and_load import save_profiles, user_profiles
 
 GENDER, AGE, HEIGHT, WEIGHT, UPDATE_AGE, UPDATE_GENDER, UPDATE_HEIGHT, UPDATE_WEIGHT, FAVORITE_SETUP = range(9)
+FAVORITE = 1
 
+# Setup command
 async def setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Mikä on sukupuolesi? (mies/nainen)")
     return GENDER
@@ -91,6 +93,44 @@ async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("Virheellinen syöte. Painon pitää olla positiivinen kokonaisluku.")
         return WEIGHT
+
+# Profile command
+async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    profile = user_profiles[user_id]
+    if user_id not in user_profiles:
+        await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
+        return
+    
+    if profile["favorite_drink_size"] == "ei määritetty":
+        favorite_drink_text = ""
+    else:
+        favorite_drink_text = f"{profile['favorite_drink_name'].capitalize()}: {profile['favorite_drink_size'].replace('.', ',')}l {profile['favorite_drink_percentage'].replace('.', ',')}%"
+
+    profile_text = (
+        f"{profile['name'].capitalize()}n profiili\n"
+        f"\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\n"
+        f"Sukupuoli: {profile['gender']}\n"
+        f"Ikä: {profile['age']} vuotta\n"
+        f"Pituus: {profile['height']} cm\n"
+        f"Paino: {profile['weight']} kg\n"
+        f"Lempijuoma: {profile['favorite_drink_name']}\n"
+        f"{favorite_drink_text}"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("Muokkaa sukupuolta", callback_data="edit_gender")],
+        [InlineKeyboardButton("Muokkaa ikää", callback_data="edit_age")],
+        [InlineKeyboardButton("Muokkaa pituutta", callback_data="edit_height")],
+        [InlineKeyboardButton("Muokkaa painoa", callback_data="edit_weight")],
+        [InlineKeyboardButton("Muokkaa lempijuomaa", callback_data="edit_favorite")],
+    ]
+
+    await update.message.reply_text(
+        profile_text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="MarkdownV2"
+    )
 
 async def update_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     gender = update.message.text.lower()
@@ -180,4 +220,40 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Kirjoita uusi lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari):")
         return FAVORITE_SETUP
 
+# Favorite drink setup command
+async def favorite_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    if user_id not in user_profiles:
+        await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
+        return
 
+    await update.message.reply_text("Kirjoita lempijuomasi koko, prosentit ja nimi: (esim. 0.33 4.2 kupari)")
+    return FAVORITE
+
+async def get_favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        favorite = update.message.text
+        favorite_size, favorite_percentage, favorite_name = favorite.split()
+
+        if float(favorite_size) <= 0:
+            raise ValueError("Koko ei voi olla nolla tai negatiivinen.")
+        elif float(favorite_percentage) > 100 or float(favorite_percentage) <= 0:
+            raise ValueError("Prosentti ei voi olla negatiivinen, 0 tai yli 100.")
+
+        user_id = str(update.message.from_user.id)
+        profile = user_profiles[user_id]
+
+        profile["favorite_drink_size"] = favorite_size
+        profile["favorite_drink_percentage"] = favorite_percentage
+        profile["favorite_drink_name"] = favorite_name
+
+        save_profiles()
+
+        await update.message.reply_text(f"Lempijuomasi on nyt {favorite_name}.")
+        return ConversationHandler.END
+    except ValueError as e:
+        if "Koko ei" in str(e) or "Prosentti ei" in str(e):
+            await update.message.reply_text(f"Virheellinen syöte. {e}")
+        else:
+            await update.message.reply_text("Virheellinen syöte. Kirjoita lempijuomasi koko, prosentit ja nimi: (esim. 0.33 4.2 kupari)")
+        return FAVORITE

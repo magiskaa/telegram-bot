@@ -1,27 +1,28 @@
-import time
-import random
-import math
 import openai
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from datetime import time as datetime_time
-from config.config import BOT_TOKEN, GROUP_ID, TOP_3_GIFS, OPENAI_API, ADMIN_ID, ANNOUNCEMENT_TEXT
-from bot.save_and_load import save_profiles, user_profiles
+from config.config import BOT_TOKEN, OPENAI_API
+from bot.save_and_load import user_profiles
+from bot.job_queue import reset_drink_stats, recap, bac_update
+from bot.stats import stats, reset, personal_best, group_stats, top_3
+from bot.admin import (
+    admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement,
+    ANNOUNCEMENT, ANSWER
+)
 from bot.drinks import (
-    drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, get_forgotten_drink, get_forgotten_time, forgotten_drink, 
-    delete_last_drink, name_conjugation, calculate_bac, recap, bac_update,
-    SIZE, PERCENTAGE, FAVORITE, FORGOTTEN_TIME, FORGOTTEN_DRINK
+    drink, get_size, get_percentage, favorite, forgotten_drink, get_forgotten_drink, 
+    get_forgotten_time, delete_last_drink, drink_history,
+    SIZE, PERCENTAGE, FORGOTTEN_TIME, FORGOTTEN_DRINK
 )
 from bot.setup import (
-    setup, get_gender, get_age, get_height, get_weight, update_gender, update_age, update_height, update_weight, button_handler, 
-    GENDER, AGE, HEIGHT, WEIGHT, UPDATE_GENDER, UPDATE_AGE, UPDATE_HEIGHT, UPDATE_WEIGHT, FAVORITE_SETUP
+    setup, get_gender, get_age, get_height, get_weight, profile, update_gender, update_age, 
+    update_height, update_weight, button_handler, favorite_drink, get_favorite,
+    GENDER, AGE, HEIGHT, WEIGHT, UPDATE_GENDER, UPDATE_AGE, UPDATE_HEIGHT, UPDATE_WEIGHT, FAVORITE_SETUP, FAVORITE
 )
 
 ASK = 1
 FIRST_ASK = True
-ANNOUNCEMENT, ANSWER = range(2)
-announcement_text = ""
-saved_announcement = ""
 
 # User commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -30,216 +31,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Aloita kirjoittamalla /setup. Apua saat kirjoittamalla /help."
     )
 
-# Profile command
-async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
-    profile = user_profiles[user_id]
-    if user_id not in user_profiles:
-        await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
-        return
-    
-    if profile["favorite_drink_size"] == "ei määritetty":
-        favorite_drink_text = ""
-    else:
-        favorite_drink_text = f"{profile['favorite_drink_name'].capitalize()}: {profile['favorite_drink_size'].replace('.', ',')}l {profile['favorite_drink_percentage'].replace('.', ',')}%"
-
-    profile_text = (
-        f"{profile['name'].capitalize()}n profiili\n"
-        f"\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\n"
-        f"Sukupuoli: {profile['gender']}\n"
-        f"Ikä: {profile['age']} vuotta\n"
-        f"Pituus: {profile['height']} cm\n"
-        f"Paino: {profile['weight']} kg\n"
-        f"Lempijuoma: {profile['favorite_drink_name']}\n"
-        f"{favorite_drink_text}"
-    )
-
-    keyboard = [
-        [InlineKeyboardButton("Muokkaa sukupuolta", callback_data="edit_gender")],
-        [InlineKeyboardButton("Muokkaa ikää", callback_data="edit_age")],
-        [InlineKeyboardButton("Muokkaa pituutta", callback_data="edit_height")],
-        [InlineKeyboardButton("Muokkaa painoa", callback_data="edit_weight")],
-        [InlineKeyboardButton("Muokkaa lempijuomaa", callback_data="edit_favorite")],
-    ]
-
-    await update.message.reply_text(
-        profile_text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="MarkdownV2"
-    )
-
 # Cancel command
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global FIRST_ASK
     FIRST_ASK = True
     await update.message.reply_text("Peruutettu.")
     return ConversationHandler.END
-
-# Own stats command
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
-    profile = user_profiles[user_id]
-    if user_id not in user_profiles:
-        await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
-        return
-    if profile["start_time"] == 0:
-        await update.message.reply_text("Et ole vielä aloittanut juomista.")
-        return
-    
-    bac_elim = await calculate_bac(update, context, user_id, noSaving=True)
-
-    bac = profile["BAC"]
-    drinking_time = profile["elapsed_time"] / 3600
-    drinks = profile["drink_count"]
-    
-    if bac > 0:
-        context.user_data["max_BAC"] -= bac_elim * drinking_time
-        hours_until_sober = context.user_data["max_BAC"] / bac_elim
-        sober_timestamp = time.time() + (hours_until_sober * 3600)
-        sober_time_str = time.strftime("%H:%M", time.gmtime(sober_timestamp + 3 * 3600))
-        sober_text = f"Selvinpäin olet noin klo {sober_time_str}."
-    else:
-        sober_text = "Olet jo selvinpäin."
-
-    drinking_time_h = math.floor(drinking_time)
-    drinking_time_m = int(drinking_time % 1 * 60)
-    stats_text = (
-        f"{name_conjugation(profile['name'], 'n')} statsit\n"
-        f"==========================\n"
-        f"Alkoholin määrä: {drinks:.2f} annosta.\n"
-        f"Aloitus: {time.strftime('%H:%M:%S', time.gmtime(profile['start_time'] + 3 * 3600))}.\n"
-        f"Olet juonut {drinking_time_h}h {drinking_time_m}min.\n"
-        f"Arvioitu BAC: {bac*10:.3f}‰.\n"
-        f"{sober_text}"
-    )
-    
-    save_profiles()
-
-    await update.message.reply_text(stats_text)
-
-# Personal best command
-async def personal_best(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
-    profile = user_profiles[user_id]
-    if user_id not in user_profiles:
-        await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
-        return
-
-    if profile["PB_BAC"] == 0:
-        await update.message.reply_text("Ei henkilökohtaista ennätystä.")
-        return
-    else:
-        pb_text = (
-            f"{name_conjugation(profile['name'], 'n')} henkilökohtainen ennätys\n"
-            f"=============================\n"
-            f"BAC: {profile['PB_BAC']:.2f}‰ ({profile['PB_dc']:.2f} annosta)\n"
-            f"Päivä: {profile['PB_day']}"
-        )
-        await update.message.reply_text(pb_text)
-
-# Own stats reset command
-async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
-    if user_id not in user_profiles:
-        await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
-        return
-
-    user_profiles[user_id]["drink_count"] = 0
-    user_profiles[user_id]["start_time"] = 0
-    user_profiles[user_id]["elapsed_time"] = 0
-    user_profiles[user_id]["BAC"] = 0
-    user_profiles[user_id]["highest_BAC"] = 0
-    user_profiles[user_id]["BAC_1_7"] = 0
-    user_profiles[user_id]["BAC_2_0"] = 0
-    user_profiles[user_id]["BAC_2_3"] = 0
-    user_profiles[user_id]["BAC_2_7"] = 0
-    user_profiles[user_id]["drink_history"] = []
-
-    save_profiles()
-
-    await update.message.reply_text("Tilastot nollattu.")
-
-# Drink history command
-async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
-    profile = user_profiles[user_id]
-    if user_id not in user_profiles:
-        await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
-        return
-
-    if len(profile["drink_history"]) == 0:
-        await update.message.reply_text("Ei juomahistoriaa.")
-        return
-
-    history_text = (
-        f"{name_conjugation(profile['name'], 'n')} juomahistoria\n"
-        "==========================\n"
-    )
-    for i, drink in enumerate(profile["drink_history"], 1):
-        if drink['size'] <= 0.06:
-            time_adjustment = 1 * 60
-        elif drink['size'] <= 0.33:
-            time_adjustment = 10 * 60
-        elif drink['size'] <= 0.5:
-            time_adjustment = 15 * 60
-        else:
-            time_adjustment = 20 * 60
-        history_text += (
-            f"{i}. {drink['size']}l {drink['percentage']}% ({drink['servings']} annosta)\n"
-            f"Juoman lopetus: {time.strftime('%H:%M:%S', time.gmtime(drink['timestamp'] + 3 * 3600 + time_adjustment))}\n\n"
-        )
-
-    await update.message.reply_text(history_text)
-
-# Group stats command
-async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    drinkers = []
-    for user in user_profiles:
-        if user == "top_3":
-            continue
-        profile = user_profiles[user]
-        if profile["drink_count"] == 0:
-            continue
-        else:
-            await calculate_bac(update, context, user)
-            drinkers.append(profile)
-
-    leaderboard = ""
-    sorted_drinkers = sorted(drinkers, key=lambda x: x["BAC"], reverse=True)
-    for i, profile in enumerate(sorted_drinkers, 1):
-        leaderboard += f"{i}. {profile['name']} {profile['BAC']:.2f}‰ ({profile['drink_count']:.2f} annosta)\n"
-
-    if len(drinkers) != 0:
-        await update.message.reply_text(
-            "Ryhmän tilastot\n"
-            "==========================\n"
-            f"Juojia: {len(drinkers)}\n"
-            f"Alkoholia juotu: {sum([profile['drink_count'] for profile in drinkers]):.2f} annosta.\n"
-            "\nLeaderboard tällä hetkellä:\n"
-            f"{leaderboard}"
-        )
-    else:
-        await update.message.reply_text("Ei juojia tällä hetkellä.")
-
-# Top 3 command
-async def top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    first = user_profiles["top_3"]["1"]
-    second = user_profiles["top_3"]["2"]
-    third = user_profiles["top_3"]["3"]
-
-    text = (
-        "Top 3 kännit\n"
-        "=============================\n"
-        f"1. {first['name'].capitalize()} {first['BAC']:.2f}‰ ({first['drinks']:.2f} annosta) {first['day']}\n"
-        f"2. {second['name'].capitalize()} {second['BAC']:.2f}‰ ({second['drinks']:.2f} annosta) {second['day']}\n"
-        f"3. {third['name'].capitalize()} {third['BAC']:.2f}‰ ({third['drinks']:.2f} annosta) {third['day']}\n"
-    )
-
-    await context.bot.send_animation(
-        chat_id=GROUP_ID,
-        animation=random.choice(TOP_3_GIFS),
-        caption=text
-    )
 
 # Help command
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -301,106 +98,6 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(response.choices[0].message.content)
     return ASK
-
-# Admin commands
-async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
-        return
-    
-    await update.message.reply_text(
-        "Admin komennot:\n\n"
-        "/group_id\n\n"
-        "/reset_top3\n\n"
-        "/announcement\n\n"
-        "/saved_announcement"
-    )
-
-async def group_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
-        return
-    
-    group_id = update.effective_chat.id
-    with open("data/group_id.txt", "w") as f:
-        f.write(str(group_id))
-
-async def reset_top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
-        return
-    
-    user_profiles["top_3"]["1"] = {
-        "name": "ei kukaan",
-        "BAC": 0,
-        "drinks": 0,
-        "day": "ei milloinkaan"
-    }
-    user_profiles["top_3"]["2"] = {
-        "name": "ei kukaan",
-        "BAC": 0,
-        "drinks": 0,
-        "day": "ei milloinkaan"
-    }
-    user_profiles["top_3"]["3"] = {
-        "name": "ei kukaan",
-        "BAC": 0,
-        "drinks": 0,
-        "day": "ei milloinkaan"
-    }
-    save_profiles()
-    await update.message.reply_text("Top 3 resetattu.")
-
-async def announcement_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
-        return
-    
-    await update.message.reply_text("Kirjoita ilmoitus, jonka haluat lähettää ryhmään.")
-    return ANNOUNCEMENT
-
-async def announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global announcement_text
-    openai.api_key = OPENAI_API
-    announcement_details = update.message.text
-    model = "gpt-4.1-mini"
-    response = openai.ChatCompletion.create(
-        model=model,
-        messages=[
-            {"role": "user", "content": ANNOUNCEMENT_TEXT + f"Tarkemmat tiedot tulevat tässä: {announcement_details}"}
-        ],
-    )
-    announcement_text = response.choices[0].message.content
-    await update.message.reply_text(announcement_text)
-
-    await update.message.reply_text("Haluatko lähettää tämän ryhmään vai laittaa säästöön? (k/e/s)")
-    return ANSWER
-    
-async def send_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global announcement_text, saved_announcement
-    answer = update.message.text
-    if answer.lower() == "k":
-        await context.bot.send_message(chat_id=GROUP_ID, text=announcement_text)
-        await update.message.reply_text("Ilmoitus lähetetty ryhmään.")
-        return ConversationHandler.END
-    elif answer.lower() == "e":
-        await update.message.reply_text("Ilmoitus peruutettu.")
-        return ConversationHandler.END
-    elif answer.lower() == "s":
-        saved_announcement = announcement_text
-        await update.message.reply_text("Ilmoitus tallennettu. Voit lähettää sen myöhemmin.")
-        return ConversationHandler.END
-    else:
-        await update.message.reply_text("Virheellinen syöte. Ilmoitus peruutettu.")
-        return ConversationHandler.END
-
-async def send_saved_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global saved_announcement
-    if saved_announcement:
-        await context.bot.send_message(chat_id=GROUP_ID, text=saved_announcement)
-        await update.message.reply_text("Tallennettu tiedote lähetetty ryhmään.")
-    else:
-        await update.message.reply_text("Ei tallennettuja tiedotteita.")
 
 
 def main():
@@ -496,10 +193,11 @@ def main():
     app.add_handler(CommandHandler("saved_announcement", send_saved_announcement))
     app.add_handler(CommandHandler("admin", admin))
 
+    # Job queue
     job_queue = app.job_queue
     job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
     job_queue.run_daily(reset_drink_stats, datetime_time(hour=9, minute=0, second=2)) # This is 12:00.02
-    job_queue.run_repeating(bac_update, interval=3, first=0)
+    job_queue.run_repeating(bac_update, interval=30, first=0)
 
     app.run_polling()
 
