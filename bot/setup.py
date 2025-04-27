@@ -20,32 +20,43 @@ async def get_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         age = int(update.message.text)
-        if age < 0:
-            raise ValueError("Ikä ei voi olla negatiivinen.")
+        if age < 18:
+            raise ValueError("Et saa käyttää tätä bottia ennen kuin olet 18-vuotias.")
+        
         context.user_data["age"] = age
+
         await update.message.reply_text("Mikä on pituutesi senttimetreinä?")
         return HEIGHT
-    except ValueError:
-        await update.message.reply_text("Virheellinen syöte. Kirjoita ikä numeroina.")
+    except ValueError as e:
+        if "Et saa" in str(e):
+            await update.message.reply_text(f"Virheellinen syöte. {e}")
+        else:
+            await update.message.reply_text("Virheellinen syöte. Iän pitää olla kokonaisluku.")
         return AGE
     
 async def get_height(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         height = int(update.message.text)
-        if height < 0:
-            raise ValueError("Pituus ei voi olla negatiivinen.")
+        if height <= 0:
+            raise ValueError("Pituus ei voi olla negatiivinen tai 0.")
+        
         context.user_data["height"] = height
+
         await update.message.reply_text("Mikä on painosi kiloina?")
         return WEIGHT
-    except ValueError:
-        await update.message.reply_text("Virheellinen syöte. Kirjoita pituus numeroina.")
+    except ValueError as e:
+        if "Pituus ei" in str(e):
+            await update.message.reply_text(f"Virheellinen syöte. {e}")
+        else:
+            await update.message.reply_text("Virheellinen syöte. Pituuden pitää olla positiivinen kokonaisluku.")
         return HEIGHT
 
 async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         weight = int(update.message.text)
-        if weight < 0:
-            raise ValueError("Paino ei voi olla negatiivinen.")
+        if weight <= 0:
+            raise ValueError("Paino ei voi olla negatiivinen tai 0.")
+        
         user_id = str(update.message.from_user.id)
         user_profiles[user_id] = {
             "name": update.message.from_user.first_name,
@@ -71,11 +82,15 @@ async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "drink_history": []
         }
         save_profiles()
-    except ValueError:
-        await update.message.reply_text("Virheellinen syöte. Kirjoita paino numeroina.")
+
+        await update.message.reply_text("Valmista! Voit nyt alkaa käyttämään /drink komentoa!")
+        return ConversationHandler.END
+    except ValueError as e:
+        if "Paino ei" in str(e):
+            await update.message.reply_text(f"Virheellinen syöte. {e}")
+        else:
+            await update.message.reply_text("Virheellinen syöte. Painon pitää olla positiivinen kokonaisluku.")
         return WEIGHT
-    await update.message.reply_text("Valmista! Voit nyt alkaa käyttämään /drink komentoa!")
-    return ConversationHandler.END
 
 async def update_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     gender = update.message.text.lower()
@@ -90,41 +105,59 @@ async def update_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def update_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         age = int(update.message.text)
-        if age < 0:
-            raise ValueError("Ikä ei voi olla negatiivinen.")
+        if age < 18:
+            raise ValueError("Et saa käyttää tätä bottia ennen kuin olet 18-vuotias.")
+        
         user_profiles[str(update.message.from_user.id)]["age"] = age
+
         save_profiles()
-    except ValueError:
-        await update.message.reply_text("Virheellinen syöte. Kirjoita ikä numeroina.")
+
+        await update.message.reply_text("Ikä päivitetty!")
+        return ConversationHandler.END
+    except ValueError as e:
+        if "Et saa" in str(e):
+            await update.message.reply_text(f"Virheellinen syöte. {e}")
+        else:
+            await update.message.reply_text("Virheellinen syöte. Iän pitää olla positiivinen kokonaisluku.")
         return UPDATE_AGE
-    await update.message.reply_text("Ikä päivitetty!")
-    return ConversationHandler.END
 
 async def update_height(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         height = int(update.message.text)
-        if height < 0:
-            raise ValueError("Pituus ei voi olla negatiivinen.")
+        if height <= 0:
+            raise ValueError("Pituus ei voi olla negatiivinen tai 0.")
+        
         user_profiles[str(update.message.from_user.id)]["height"] = height
+        
         save_profiles()
-    except ValueError:
-        await update.message.reply_text("Virheellinen syöte. Kirjoita pituus numeroina.")
+
+        await update.message.reply_text("Pituus päivitetty!")
+        return ConversationHandler.END
+    except ValueError as e:
+        if "Pituus ei" in str(e):
+            await update.message.reply_text(f"Virheellinen syöte. {e}")
+        else:
+            await update.message.reply_text("Virheellinen syöte. Pituuden pitää olla positiivinen kokonaisluku.")
         return UPDATE_HEIGHT
-    await update.message.reply_text("Pituus päivitetty!")
-    return ConversationHandler.END
 
 async def update_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         weight = int(update.message.text)
-        if weight < 0:
+        if weight <= 0:
             raise ValueError("Paino ei voi olla negatiivinen.")
+        
         user_profiles[str(update.message.from_user.id)]["weight"] = weight
+
         save_profiles()
-    except ValueError:
-        await update.message.reply_text("Virheellinen syöte. Kirjoita paino numeroina.")
+
+        await update.message.reply_text("Paino päivitetty!")
+        return ConversationHandler.END
+    except ValueError as e:
+        if "Paino ei" in str(e):
+            await update.message.reply_text(f"Virheellinen syöte. {e}")
+        else:
+            await update.message.reply_text("Virheellinen syöte. Painon pitää olla positiivinen kokonaisluku.")
         return UPDATE_WEIGHT
-    await update.message.reply_text("Paino päivitetty!")
-    return ConversationHandler.END
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
