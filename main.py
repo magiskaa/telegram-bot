@@ -48,7 +48,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/drinks - Katsele omaa tämän iltaista juomahistoriaa.\n"
         "/group_stats - Katsele ryhmän tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
         "/pb - Katsele omaa henkilökohtaista ennätystä.\n"
-        "/top3 - Katsele Top 3 kännit -listaa. Lähettää listan ryhmään.\n"
+        "/top3 - Katsele Top 3 kännit -listaa. Lähettää listan sinne missä käytät komentoa.\n"
         "/forgotten - Lisää juoma jonka olet unohtanut lisätä aiemmin. Kirjoita ensiksi juoman koko ja prosentit, ja sen jälkeen juoman aloitusaika."
         "/profile - Katsele profiiliasi ja muokkaa tietojasi tarvittaessa.\n"
         "/setup - Aseta profiilisi tiedot. Sukupuoli, ikä, pituus, paino.\n"

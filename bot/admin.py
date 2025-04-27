@@ -110,6 +110,3 @@ async def send_saved_announcement(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text("Tallennettu tiedote lähetetty ryhmään.")
     else:
         await update.message.reply_text("Ei tallennettuja tiedotteita.")
-
-
-

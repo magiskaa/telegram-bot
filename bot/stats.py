@@ -4,7 +4,7 @@ import time
 from telegram import Update
 from telegram.ext import ContextTypes
 from bot.save_and_load import save_profiles, user_profiles
-from config.config import GROUP_ID, TOP_3_GIFS
+from config.config import TOP_3_GIFS
 from bot.calculations import calculate_bac
 from bot.utils import name_conjugation
 
@@ -138,7 +138,6 @@ async def top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await context.bot.send_animation(
-        chat_id=GROUP_ID,
         animation=random.choice(TOP_3_GIFS),
         caption=text
     )
