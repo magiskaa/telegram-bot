@@ -9,6 +9,7 @@ from telegram.ext import ContextTypes, ConversationHandler, CallbackContext
 
 SIZE, PERCENTAGE = range(2)
 FAVORITE = 1
+FORGOTTEN_TIME, FORGOTTEN_DRINK = range(2)
 
 async def drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
@@ -160,6 +161,72 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{user_profiles[user_id]['favorite_drink_name'].capitalize()} +1 "
         f"({servings} annosta).\nBAC: {profile['BAC']:.3f}‰"
     )
+
+async def get_forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    if user_id not in user_profiles:
+        await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
+        return
+
+    await update.message.reply_text("Anna unohtuneen juoman koko ja prosentit (esim. 0.33 4.2):")
+    return FORGOTTEN_TIME
+
+async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        forgotten = update.message.text
+        forgotten_size, forgotten_percentage = forgotten.split()
+        size = float(forgotten_size)
+        percentage = float(forgotten_percentage)
+
+        if size <= 0 or percentage <= 0 or percentage > 100:
+            raise ValueError("Virheellinen syöte. Koko ja prosentti eivät voi olla nollia tai negatiivisia.")
+
+        context.user_data["forgotten_size"] = size
+        context.user_data["forgotten_percentage"] = percentage
+
+        await update.message.reply_text("Mihin aikaan aloitit juoman? (esim. 20:46)")
+        return FORGOTTEN_DRINK
+    except ValueError:
+        await update.message.reply_text("Virheellinen syöte. Kirjoita koko ja prosentti desimaalilukuina. (esim. 0.33 4.2)")
+        return FORGOTTEN_TIME
+
+async def forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    forgotten_time = update.message.text
+    if ":" not in forgotten_time:
+        await update.message.reply_text("Virheellinen aika. Kirjoita aika muodossa HH:MM.")
+        return FORGOTTEN_DRINK
+
+    user_id = str(update.message.from_user.id)
+    profile = user_profiles[user_id]
+
+    servings = calculate_alcohol(context.user_data["forgotten_size"], context.user_data["forgotten_percentage"])
+    profile["drink_count"] += servings
+
+    timestamp = time.mktime(time.strptime(f"{time.strftime('%Y-%m-%d')} {forgotten_time}", "%Y-%m-%d %H:%M"))
+
+    profile["drink_history"].append({
+        "size": context.user_data["forgotten_size"],
+        "percentage": context.user_data["forgotten_percentage"],
+        "servings": servings,
+        "timestamp": timestamp
+    })
+
+    if profile["start_time"] == 0:
+        profile["start_time"] = timestamp
+    elif timestamp < profile["start_time"]:
+        profile["start_time"] = timestamp
+
+    save_profiles()
+
+    await calculate_bac(update, context, user_id)
+
+    await update.message.reply_text(
+        f"Lisätty unohtunut juoma: {context.user_data['forgotten_size']}l "
+        f"{context.user_data['forgotten_percentage']}% ({servings} annosta).\n"
+        f"Juomasi aloitusaika: {forgotten_time}.\n"
+        f"BAC: {profile['BAC']:.3f}‰"
+    )
+    return ConversationHandler.END
 
 async def delete_last_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
@@ -426,8 +493,15 @@ async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user
         elimination_time = drinking_time
 
     bac = absorbed_grams / (weight*1000 * r) * 100
-    grams_per_kg = 0.1 * weight
+
+    if gender == "mies":
+        grams = 0.11 if weight < 70 else 0.10
+    else:
+        grams = 0.13 if weight < 60 else 0.12 
+    
+    grams_per_kg = grams * weight
     bac_elim = grams_per_kg / (weight*1000 * r) * 100
+    
     bac -= bac_elim * elimination_time
     bac = max(0, bac)
 

@@ -8,8 +8,9 @@ from datetime import time as datetime_time
 from config.config import BOT_TOKEN, GROUP_ID, TOP_3_GIFS, OPENAI_API, ADMIN_ID, ANNOUNCEMENT_TEXT
 from bot.save_and_load import save_profiles, user_profiles
 from bot.drinks import (
-    drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, delete_last_drink, name_conjugation, calculate_bac, recap, bac_update,
-    SIZE, PERCENTAGE, FAVORITE
+    drink, get_size, get_percentage, reset_drink_stats, favorite_drink, get_favorite, favorite, get_forgotten_drink, get_forgotten_time, forgotten_drink, 
+    delete_last_drink, name_conjugation, calculate_bac, recap, bac_update,
+    SIZE, PERCENTAGE, FAVORITE, FORGOTTEN_TIME, FORGOTTEN_DRINK
 )
 from bot.setup import (
     setup, get_gender, get_age, get_height, get_weight, update_gender, update_age, update_height, update_weight, button_handler, 
@@ -247,16 +248,17 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "\n/drink - Syötä vapaavalintainen juoma. Ensiksi juoman koko ja sen jälkeen prosentit. Voit vähentää juoman asettamalla juoman koon negatiiviseksi.\n"
         "/favorite - Syötä lempijuomasi.\n"
         "/stats - Katsele omia tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
-        "/pb - Katsele omaa henkilökohtaista ennätystä.\n"
         "/drinks - Katsele omaa tämän iltaista juomahistoriaa.\n"
         "/group_stats - Katsele ryhmän tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
+        "/pb - Katsele omaa henkilökohtaista ennätystä.\n"
         "/top3 - Katsele Top 3 kännit -listaa. Lähettää listan ryhmään.\n"
+        "/forgotten - Lisää juoma jonka olet unohtanut lisätä aiemmin. Kirjoita ensiksi juoman koko ja prosentit, ja sen jälkeen juoman aloitusaika."
         "/profile - Katsele profiiliasi ja muokkaa tietojasi tarvittaessa.\n"
         "/setup - Aseta profiilisi tiedot. Sukupuoli, ikä, pituus, paino.\n"
         "/favorite_setup - Aseta lempijuomasi (esim. 0.33 4.2 kupari).\n"
         "/friend - Kysy tekoälykaverilta jotain syvällistä. Lopeta keskustelu sanomalla 'heippa' tai komennolla /cancel.\n"
         "/delete - Poista viimeisin lisäämäsi juoma.\n"
-        "/cancel - Peruuta (esim. setup taikka drink).\n"
+        "/cancel - Peruuta (setup, drink, forgotten, favorite_setup tai friend).\n"
         "/reset - Resetoi tämän illan juomatilastosi.\n"
         "/help - Näytää tämän viestin."
     )
@@ -444,6 +446,17 @@ def main():
     fallbacks=[CommandHandler("cancel", cancel)]
     )
     app.add_handler(favorite_conv_handler)
+
+    # Forgotten drink conversation handler
+    forgotten_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("forgotten", get_forgotten_drink)],
+        states={
+            FORGOTTEN_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_time)],
+            FORGOTTEN_DRINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, forgotten_drink)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
+    )
+    app.add_handler(forgotten_conv_handler)
 
     # AI friend conversation handler
     ask_conv_handler = ConversationHandler(
