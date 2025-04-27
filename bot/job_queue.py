@@ -179,6 +179,7 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
         await context.bot.send_animation(
             chat_id=GROUP_ID, 
             animation=random.choice(GIFS),
-            caption=random.choice(MESSAGES) + f" {profile['BAC']:.2f}‰")
+            caption=random.choice(MESSAGES) + f" {profile['BAC']:.2f}‰"
+        )
     except telegram.error.TimedOut:
         await context.bot.send_message(chat_id=ADMIN_ID, text="Viestin lähetys epäonnistui aikakatkaisun vuoksi.")

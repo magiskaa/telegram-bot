@@ -112,7 +112,10 @@ async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         leaderboard += f"{i}. {profile['name']} {profile['BAC']:.2f}‰ ({profile['drink_count']:.2f} annosta)\n"
 
     if len(drinkers) != 0:
-        await update.message.reply_text(
+        await context.bot.send_animation(
+            chat_id=update.effective_chat.id,
+            animation=random.choice(TOP_3_GIFS),
+            caption=
             "Ryhmän tilastot\n"
             "==========================\n"
             f"Juojia: {len(drinkers)}\n"
@@ -121,7 +124,10 @@ async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{leaderboard}"
         )
     else:
-        await update.message.reply_text("Ei juojia tällä hetkellä.")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Ei juojia tällä hetkellä."
+        )
 
 # Top 3 command
 async def top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -138,6 +144,7 @@ async def top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await context.bot.send_animation(
+        chat_id=update.effective_chat.id,
         animation=random.choice(TOP_3_GIFS),
         caption=text
     )
