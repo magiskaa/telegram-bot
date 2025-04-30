@@ -148,8 +148,8 @@ def main():
     forgotten_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("forgotten", get_forgotten_drink)],
         states={
-            FORGOTTEN_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_time)],
-            FORGOTTEN_DRINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, forgotten_drink)]
+            FORGOTTEN_DRINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_drink)],
+            FORGOTTEN_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_time)]
         },
         fallbacks=[CommandHandler("cancel", cancel)]
     )
