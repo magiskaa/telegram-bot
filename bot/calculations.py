@@ -71,6 +71,7 @@ async def calculate_absorption(update: Update, context: ContextTypes.DEFAULT_TYP
         drink_elapsed_time = (current_time - drink["timestamp"]) / 3600
 
         if drink_elapsed_time < 0:
+            print(f"Drink elapsed time is negative, skipping {profile['name']}'s drink.")
             continue
         
         k = 3 * (64/weight)**0.25 * gender_factor
