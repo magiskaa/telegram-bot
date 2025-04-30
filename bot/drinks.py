@@ -7,7 +7,7 @@ from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 
 SIZE, PERCENTAGE = range(2)
-FORGOTTEN_TIME, FORGOTTEN_DRINK = range(2)
+FORGOTTEN_DRINK, FORGOTTEN_TIME = range(2)
 
 # Drink command
 async def drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -167,7 +167,7 @@ async def forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text("Kirjoita unohtuneen juoman koko ja prosentit: (esim. 0.33 4.2)")
-    return FORGOTTEN_TIME
+    return FORGOTTEN_DRINK
 
 async def get_forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:

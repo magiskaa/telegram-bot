@@ -146,7 +146,7 @@ def main():
 
     # Forgotten drink conversation handler
     forgotten_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("forgotten", get_forgotten_drink)],
+        entry_points=[CommandHandler("forgotten", forgotten_drink)],
         states={
             FORGOTTEN_DRINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_drink)],
             FORGOTTEN_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_time)]
