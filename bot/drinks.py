@@ -186,19 +186,19 @@ async def get_forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE
         context.user_data["forgotten_percentage"] = percentage
 
         await update.message.reply_text("Mihin aikaan aloitit juoman? (esim. 20:46)")
-        return FORGOTTEN_DRINK
+        return FORGOTTEN_TIME
     except ValueError as e:
         if "Koko ei" in str(e) or "Prosentti ei" in str(e):
             await update.message.reply_text(f"Virheellinen syöte. {e}")
         else:
             await update.message.reply_text("Virheellinen syöte. Kirjoita unohtuneen juoman koko ja prosentit: (esim. 0.33 4.2)")
-        return FORGOTTEN_TIME
+        return FORGOTTEN_DRINK
 
 async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     forgotten_time = update.message.text
     if not re.match(r"^(?:[01]\d|2[0-3]):[0-5]\d$", forgotten_time):
         await update.message.reply_text("Virheellinen aika. Kirjoita aika muodossa HH:MM.")
-        return FORGOTTEN_DRINK
+        return FORGOTTEN_TIME
 
     user_id = str(update.message.from_user.id)
     profile = user_profiles[user_id]
