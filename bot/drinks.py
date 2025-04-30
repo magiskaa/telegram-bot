@@ -287,7 +287,7 @@ async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
             time_adjustment = 20 * 60
         history_text += (
             f"{i}. {drink['size']}l {drink['percentage']}% ({drink['servings']} annosta)\n"
-            f"Juoman lopetus: {time.strftime('%H:%M:%S', time.gmtime(drink['timestamp'] + 3 * 3600 + time_adjustment))}\n\n"
+            f"Juoman lopetus: {time.strftime('%H:%M:%S', time.localtime(drink['timestamp'] + time_adjustment))}\n\n"
         )
 
     await update.message.reply_text(history_text)
