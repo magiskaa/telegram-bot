@@ -44,6 +44,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Aloitus: {time.strftime('%H:%M:%S', time.gmtime(profile['start_time'] + 3 * 3600))}.\n"
         f"Olet juonut {drinking_time_h}h {drinking_time_m}min.\n"
         f"Arvioitu BAC: {bac*10:.3f}‰.\n"
+        f"Korkein BAC: {profile['highest_BAC']:.3f}‰.\n"
         f"{sober_text}"
     )
     

@@ -108,7 +108,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
         print(f"Failed to send error message: {e}")
 
 
-def main(context: ContextTypes.DEFAULT_TYPE):
+def main():
     try:
         app = ApplicationBuilder().token(BOT_TOKEN).build()
 
