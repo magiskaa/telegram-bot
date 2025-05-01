@@ -2,7 +2,7 @@ import openai
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from datetime import time as datetime_time
-from config.config import BOT_TOKEN, OPENAI_API
+from config.config import BOT_TOKEN, OPENAI_API, ADMIN_ID
 from bot.save_and_load import user_profiles
 from bot.job_queue import reset_drink_stats, recap, bac_update
 from bot.stats import stats, reset, personal_best, group_stats, top_3
@@ -100,106 +100,120 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ASK
 
 
-def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+# Error handler
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        await context.bot.send_message(chat_id=ADMIN_ID, text=f"Handler error: {context.error}")
+    except Exception as e:
+        print(f"Failed to send error message: {e}")
 
-    app.add_handler(CommandHandler("start", start))
 
-    # Setup conversation handler
-    setup_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("setup", setup), CallbackQueryHandler(button_handler)],
+def main(context: ContextTypes.DEFAULT_TYPE):
+    try:
+        app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+        app.add_handler(CommandHandler("start", start))
+
+        # Setup conversation handler
+        setup_conv_handler = ConversationHandler(
+            entry_points=[CommandHandler("setup", setup), CallbackQueryHandler(button_handler)],
+            states={
+                GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_gender)],
+                AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_age)],
+                HEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_height)],
+                WEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_weight)],
+                UPDATE_GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_gender)],
+                UPDATE_AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_age)],
+                UPDATE_HEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_height)],
+                UPDATE_WEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_weight)],
+                FAVORITE_SETUP: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_favorite)],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)]
+        )
+        app.add_handler(setup_conv_handler)
+
+        # Drink conversation handler
+        drink_conv_handler = ConversationHandler(
+            entry_points=[CommandHandler("drink", drink)],
+            states={
+                SIZE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_size)],
+                PERCENTAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_percentage)]
+            },
+            fallbacks=[CommandHandler("cancel", cancel)]
+        )
+        app.add_handler(drink_conv_handler)
+
+        # Favorite drink conversation handler
+        favorite_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("favorite_setup", favorite_drink)],
         states={
-            GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_gender)],
-            AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_age)],
-            HEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_height)],
-            WEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_weight)],
-            UPDATE_GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_gender)],
-            UPDATE_AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_age)],
-            UPDATE_HEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_height)],
-            UPDATE_WEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_weight)],
-            FAVORITE_SETUP: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_favorite)],
+            FAVORITE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_favorite)]
         },
         fallbacks=[CommandHandler("cancel", cancel)]
-    )
-    app.add_handler(setup_conv_handler)
+        )
+        app.add_handler(favorite_conv_handler)
 
-    # Drink conversation handler
-    drink_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("drink", drink)],
-        states={
-            SIZE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_size)],
-            PERCENTAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_percentage)]
-        },
-        fallbacks=[CommandHandler("cancel", cancel)]
-    )
-    app.add_handler(drink_conv_handler)
+        # Forgotten drink conversation handler
+        forgotten_conv_handler = ConversationHandler(
+            entry_points=[CommandHandler("forgotten", forgotten_drink)],
+            states={
+                FORGOTTEN_DRINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_drink)],
+                FORGOTTEN_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_time)]
+            },
+            fallbacks=[CommandHandler("cancel", cancel)]
+        )
+        app.add_handler(forgotten_conv_handler)
 
-    # Favorite drink conversation handler
-    favorite_conv_handler = ConversationHandler(
-    entry_points=[CommandHandler("favorite_setup", favorite_drink)],
-    states={
-        FAVORITE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_favorite)]
-    },
-    fallbacks=[CommandHandler("cancel", cancel)]
-    )
-    app.add_handler(favorite_conv_handler)
+        # AI friend conversation handler
+        ask_conv_handler = ConversationHandler(
+            entry_points=[CommandHandler("friend", ask)],
+            states={
+                ASK: [MessageHandler(filters.TEXT & ~filters.COMMAND, ai_reply)]
+            },
+            fallbacks=[CommandHandler("cancel", cancel)]
+        )
+        app.add_handler(ask_conv_handler)
 
-    # Forgotten drink conversation handler
-    forgotten_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("forgotten", forgotten_drink)],
-        states={
-            FORGOTTEN_DRINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_drink)],
-            FORGOTTEN_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_time)]
-        },
-        fallbacks=[CommandHandler("cancel", cancel)]
-    )
-    app.add_handler(forgotten_conv_handler)
+        # User commands
+        app.add_handler(CommandHandler("profile", profile))
+        app.add_handler(CommandHandler("favorite", favorite))
+        app.add_handler(CommandHandler("stats", stats))
+        app.add_handler(CommandHandler("pb", personal_best))
+        app.add_handler(CommandHandler("drinks", drink_history))
+        app.add_handler(CommandHandler("reset", reset))
+        app.add_handler(CommandHandler("group_stats", group_stats))
+        app.add_handler(CommandHandler("top3", top_3))
+        app.add_handler(CommandHandler("delete", delete_last_drink))
+        app.add_handler(CommandHandler("help", help))
+        
+        # Admin commands
+        announcement_conv_handler = ConversationHandler(
+            entry_points=[CommandHandler("announcement", announcement_input)],
+            states={
+                ANNOUNCEMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, announcement)],
+                ANSWER: [MessageHandler(filters.TEXT & ~filters.COMMAND, send_announcement)]
+            },
+            fallbacks=[CommandHandler("cancel", cancel)]
+        )
+        app.add_handler(announcement_conv_handler)
 
-    # AI friend conversation handler
-    ask_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("friend", ask)],
-        states={
-            ASK: [MessageHandler(filters.TEXT & ~filters.COMMAND, ai_reply)]
-        },
-        fallbacks=[CommandHandler("cancel", cancel)]
-    )
-    app.add_handler(ask_conv_handler)
+        app.add_handler(CommandHandler("group_id", group_id))
+        app.add_handler(CommandHandler("reset_top3", reset_top_3))
+        app.add_handler(CommandHandler("saved_announcement", send_saved_announcement))
+        app.add_handler(CommandHandler("admin", admin))
 
-    # User commands
-    app.add_handler(CommandHandler("profile", profile))
-    app.add_handler(CommandHandler("favorite", favorite))
-    app.add_handler(CommandHandler("stats", stats))
-    app.add_handler(CommandHandler("pb", personal_best))
-    app.add_handler(CommandHandler("drinks", drink_history))
-    app.add_handler(CommandHandler("reset", reset))
-    app.add_handler(CommandHandler("group_stats", group_stats))
-    app.add_handler(CommandHandler("top3", top_3))
-    app.add_handler(CommandHandler("delete", delete_last_drink))
-    app.add_handler(CommandHandler("help", help))
-    
-    # Admin commands
-    announcement_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("announcement", announcement_input)],
-        states={
-            ANNOUNCEMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, announcement)],
-            ANSWER: [MessageHandler(filters.TEXT & ~filters.COMMAND, send_announcement)]
-        },
-        fallbacks=[CommandHandler("cancel", cancel)]
-    )
-    app.add_handler(announcement_conv_handler)
+        # Error handler
+        app.add_error_handler(error_handler)
 
-    app.add_handler(CommandHandler("group_id", group_id))
-    app.add_handler(CommandHandler("reset_top3", reset_top_3))
-    app.add_handler(CommandHandler("saved_announcement", send_saved_announcement))
-    app.add_handler(CommandHandler("admin", admin))
+        # Job queue
+        job_queue = app.job_queue
+        job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
+        job_queue.run_daily(reset_drink_stats, datetime_time(hour=9, minute=0, second=2)) # This is 12:00.02
+        job_queue.run_repeating(bac_update, interval=30, first=0)
 
-    # Job queue
-    job_queue = app.job_queue
-    job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
-    job_queue.run_daily(reset_drink_stats, datetime_time(hour=9, minute=0, second=2)) # This is 12:00.02
-    job_queue.run_repeating(bac_update, interval=30, first=0)
-
-    app.run_polling()
+        app.run_polling()
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 if __name__ == "__main__":

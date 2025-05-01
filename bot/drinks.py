@@ -256,6 +256,10 @@ async def delete_last_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         profile["highest_BAC"] = 0
         save_profiles()
     else:
+        if profile["highest_BAC"] > 0.1:
+            profile["highest_BAC"] -= 0.1
+        else:
+            profile["highest_BAC"] = 0.0
         profile["BAC"] = await calculate_bac(update, context, user_id)
 
     await update.message.reply_text("Viimeisin juoma poistettu.")
