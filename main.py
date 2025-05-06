@@ -102,10 +102,17 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Error handler
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id if isinstance(update, Update) else None
+    if user_id in user_profiles:
+        text = f"Handler error: {context.error}. User: {user_profiles[user_id]['name']}"
+    else:
+        text = f"Handler error: {context.error}. No user information available."
+    
     try:
-        await context.bot.send_message(chat_id=ADMIN_ID, text=f"Handler error: {context.error}")
+        await context.bot.send_message(chat_id=ADMIN_ID, text=text)
+        print(f"Error message sent to admin: {text}")
     except Exception as e:
-        print(f"Failed to send error message: {e}")
+        print(f"Failed to send error message to admin: {e}")
 
 
 def main():
@@ -213,7 +220,7 @@ def main():
 
         app.run_polling()
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error in main: {e}")
 
 
 if __name__ == "__main__":

@@ -196,7 +196,7 @@ async def get_forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     forgotten_time = update.message.text
-    if not re.match(r"^(?:[01]\d|2[0-3])[:.][0-5]\d$", forgotten_time):
+    if not re.match(r"^(?:[01]\d|2[0-3]):[0-5]\d$", forgotten_time):
         await update.message.reply_text("Virheellinen aika. Kirjoita aika muodossa HH:MM tai HH.MM.")
         return FORGOTTEN_TIME
 
