@@ -40,9 +40,9 @@ async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user
     bac = absorbed_grams / (weight*1000 * r) * 100
 
     if gender == "mies":
-        grams = 0.11 if weight < 70 else 0.10
+        grams = 0.1125 if weight < 70 else 0.10
     else:
-        grams = 0.13 if weight < 60 else 0.12 
+        grams = 0.14 if weight < 60 else 0.125
     
     grams_per_kg = grams * weight
     bac_elim = grams_per_kg / (weight*1000 * r) * 100

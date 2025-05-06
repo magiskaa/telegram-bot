@@ -1,15 +1,20 @@
 import random
 import math
 import openai
+import time
 import telegram
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from bot.save_and_load import save_profiles, user_profiles
+from bot.calculations import calculate_bac
+from bot.utils import name_conjugation
 from config.config import GROUP_ID, ADMIN_ID, OPENAI_API, ANNOUNCEMENT_TEXT
 
 ANNOUNCEMENT, ANSWER = range(2)
 announcement_text = ""
 saved_announcement = ""
+GET_STATS = 1
+GET_DRINKS = 1
 
 # Admin commands
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -22,7 +27,9 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/group_id\n\n"
         "/reset_top3\n\n"
         "/announcement\n\n"
-        "/saved_announcement"
+        "/saved_announcement\n\n"
+        "/get_stats\n\n"
+        "/get_drinks"
     )
 
 async def group_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -110,3 +117,122 @@ async def send_saved_announcement(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text("Tallennettu tiedote lähetetty ryhmään.")
     else:
         await update.message.reply_text("Ei tallennettuja tiedotteita.")
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
+        return
+    
+    await update.message.reply_text("Kenen tilastot haluat nähdä?")
+    return GET_STATS
+
+async def get_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.text.lower()
+    for user_id in user_profiles:
+        if user_id == "top_3":
+            continue
+        if user == user_profiles[user_id]["name"].lower():
+            profile = user_profiles[user_id]
+            id = user_id
+            break
+        else:
+            profile = None
+
+    if not profile:
+        await update.message.reply_text("Ei ole olemassa sen nimistä käyttäjää. Syötä uudestaan:")
+        return GET_STATS
+    
+    stats = await show_stats(update, context, profile, id)
+    await context.bot.send_message(chat_id=ADMIN_ID, text=stats)
+    return ConversationHandler.END
+
+async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile, user_id):
+    if profile["start_time"] == 0:
+        await context.bot.send_message(chat_id=ADMIN_ID, text=f"{profile['name']} ei ole vielä aloittanut juomista.")
+        return ConversationHandler.END
+    
+    bac_elim = await calculate_bac(update, context, user_id, noSaving=True)
+
+    name = profile['name'].capitalize()
+    bac = profile["BAC"]
+    drinking_time = profile["elapsed_time"] / 3600
+    drinks = profile["drink_count"]
+    
+    if bac > 0:
+        context.user_data["max_BAC"] -= bac_elim * drinking_time
+        hours_until_sober = context.user_data["max_BAC"] / bac_elim
+        sober_timestamp = time.time() + (hours_until_sober * 3600)
+        sober_time_str = time.strftime("%H:%M", time.gmtime(sober_timestamp + 3 * 3600))
+        sober_text = f"{name} on selvinpäin noin klo {sober_time_str}."
+    else:
+        sober_text = f"{name} on jo selvinpäin."
+
+    drinking_time_h = math.floor(drinking_time)
+    drinking_time_m = int(drinking_time % 1 * 60)
+    stats_text = (
+        f"{name_conjugation(profile['name'], 'n')} statsit\n"
+        f"==========================\n"
+        f"Alkoholin määrä: {drinks:.2f} annosta.\n"
+        f"Aloitus: {time.strftime('%H:%M:%S', time.gmtime(profile['start_time'] + 3 * 3600))}.\n"
+        f"{name} on juonut {drinking_time_h}h {drinking_time_m}min.\n"
+        f"Arvioitu BAC: {bac*10:.3f}‰.\n"
+        f"Korkein BAC: {profile['highest_BAC']:.3f}‰.\n"
+        f"{sober_text}"
+    )
+    
+    save_profiles()
+
+    return stats_text
+
+async def drinks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
+        return
+    
+    await update.message.reply_text("Kenen juomahistorian haluat nähdä?")
+    return GET_DRINKS
+
+async def get_drinks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.text.lower()
+    for user_id in user_profiles:
+        if user_id == "top_3":
+            continue
+        if user == user_profiles[user_id]["name"].lower():
+            profile = user_profiles[user_id]
+            break
+        else:
+            profile = None
+
+    if not profile:
+        await update.message.reply_text("Ei ole olemassa sen nimistä käyttäjää. Syötä uudestaan:")
+        return GET_DRINKS
+
+    drinks = await show_drinks(update, context, profile)
+    await context.bot.send_message(chat_id=ADMIN_ID, text=drinks)
+    return ConversationHandler.END
+
+async def show_drinks(update: Update, context: ContextTypes.DEFAULT_TYPE, profile):
+    if len(profile["drink_history"]) == 0:
+        await update.message.reply_text(f"{name_conjugation(profile['name'], 'lla')} ei ole juomahistoriaa.")
+        return
+
+    history_text = (
+        f"{name_conjugation(profile['name'], 'n')} juomahistoria\n"
+        "==========================\n"
+    )
+    for i, drink in enumerate(profile["drink_history"], 1):
+        if drink['size'] <= 0.06:
+            time_adjustment = 1 * 60
+        elif drink['size'] <= 0.33:
+            time_adjustment = 10 * 60
+        elif drink['size'] <= 0.5:
+            time_adjustment = 15 * 60
+        else:
+            time_adjustment = 20 * 60
+        history_text += (
+            f"{i}. {drink['size']}l {drink['percentage']}% ({drink['servings']} annosta)\n"
+            f"Juoman lopetus: {time.strftime('%H:%M:%S', time.gmtime(drink['timestamp'] + 3 * 3600 + time_adjustment))}\n\n"
+        )
+
+    return history_text
+

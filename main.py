@@ -7,8 +7,8 @@ from bot.save_and_load import user_profiles
 from bot.job_queue import reset_drink_stats, recap, bac_update
 from bot.stats import stats, reset, personal_best, group_stats, top_3
 from bot.admin import (
-    admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement,
-    ANNOUNCEMENT, ANSWER
+    admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement, stats, get_stats, drinks, get_drinks,
+    ANNOUNCEMENT, ANSWER, GET_STATS, GET_DRINKS
 )
 from bot.drinks import (
     drink, get_size, get_percentage, favorite, forgotten_drink, get_forgotten_drink, 
@@ -203,6 +203,24 @@ def main():
             fallbacks=[CommandHandler("cancel", cancel)]
         )
         app.add_handler(announcement_conv_handler)
+
+        stats_conv_handler = ConversationHandler(
+            entry_points=[CommandHandler("get_stats", stats)],
+            states={
+                GET_STATS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_stats)]
+            },
+            fallbacks=[CommandHandler("cancel", cancel)]
+        )
+        app.add_handler(stats_conv_handler)
+
+        drinks_conv_handler = ConversationHandler(
+            entry_points=[CommandHandler("get_drinks", drinks)],
+            states={
+                GET_DRINKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_drinks)]
+            },
+            fallbacks=[CommandHandler("cancel", cancel)]
+        )
+        app.add_handler(drinks_conv_handler)
 
         app.add_handler(CommandHandler("group_id", group_id))
         app.add_handler(CommandHandler("reset_top3", reset_top_3))
