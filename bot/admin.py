@@ -118,7 +118,7 @@ async def send_saved_announcement(update: Update, context: ContextTypes.DEFAULT_
     else:
         await update.message.reply_text("Ei tallennettuja tiedotteita.")
 
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != ADMIN_ID:
         await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
         return

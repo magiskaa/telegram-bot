@@ -7,12 +7,12 @@ from bot.save_and_load import user_profiles
 from bot.job_queue import reset_drink_stats, recap, bac_update
 from bot.stats import stats, reset, personal_best, group_stats, top_3
 from bot.admin import (
-    admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement, stats, get_stats, drinks, get_drinks,
+    admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement, admin_stats, get_stats, drinks, get_drinks,
     ANNOUNCEMENT, ANSWER, GET_STATS, GET_DRINKS
 )
 from bot.drinks import (
     drink, get_size, get_percentage, favorite, forgotten_drink, get_forgotten_drink, 
-    get_forgotten_time, delete_last_drink, drink_history,
+    get_forgotten_time, delete_last_drink, drink_history, add_latest_drink,
     SIZE, PERCENTAGE, FORGOTTEN_TIME, FORGOTTEN_DRINK
 )
 from bot.setup import (
@@ -44,6 +44,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Käytettävissäsi olevat komennot:\n"
         "\n/drink - Syötä vapaavalintainen juoma. Ensiksi juoman koko ja sen jälkeen prosentit. Voit vähentää juoman asettamalla juoman koon negatiiviseksi.\n"
         "/favorite - Syötä lempijuomasi.\n"
+        "/add_last - Syötä viimeisin lisäämäsi juoma.\n"
         "/stats - Katsele omia tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
         "/drinks - Katsele omaa tämän iltaista juomahistoriaa.\n"
         "/group_stats - Katsele ryhmän tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
@@ -184,6 +185,7 @@ def main():
         # User commands
         app.add_handler(CommandHandler("profile", profile))
         app.add_handler(CommandHandler("favorite", favorite))
+        app.add_handler(CommandHandler("add_last", add_latest_drink))
         app.add_handler(CommandHandler("stats", stats))
         app.add_handler(CommandHandler("pb", personal_best))
         app.add_handler(CommandHandler("drinks", drink_history))
@@ -205,7 +207,7 @@ def main():
         app.add_handler(announcement_conv_handler)
 
         stats_conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("get_stats", stats)],
+            entry_points=[CommandHandler("get_stats", admin_stats)],
             states={
                 GET_STATS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_stats)]
             },
@@ -225,7 +227,7 @@ def main():
         app.add_handler(CommandHandler("group_id", group_id))
         app.add_handler(CommandHandler("reset_top3", reset_top_3))
         app.add_handler(CommandHandler("saved_announcement", send_saved_announcement))
-        app.add_handler(CommandHandler("admin", admin))
+        app.add_handler(CommandHandler("a", admin))
 
         # Error handler
         app.add_error_handler(error_handler)

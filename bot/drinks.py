@@ -295,3 +295,43 @@ async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     await update.message.reply_text(history_text)
+
+# Latest drink command
+async def add_latest_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    profile = user_profiles[user_id]
+    if user_id not in user_profiles:
+        await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
+        return
+    
+    if len(profile["drink_history"]) == 0:
+        await update.message.reply_text("Ei juomahistoriaa.")
+        return
+
+    if profile["drink_history"][-1]["size"] <= 0.06:
+        time_adjustment = 1 * 60
+    elif profile["drink_history"][-1]["size"] <= 0.33:
+        time_adjustment = 10 * 60
+    elif profile["drink_history"][-1]["size"] <= 0.5:
+        time_adjustment = 15 * 60
+    else:
+        time_adjustment = 20 * 60
+
+    latest_drink = {
+        "size": profile["drink_history"][-1]["size"],
+        "percentage": profile["drink_history"][-1]["percentage"],
+        "servings": profile["drink_history"][-1]["servings"],
+        "timestamp": time.time() - time_adjustment
+    }
+
+    profile["drink_history"].append(latest_drink)
+    profile["drink_count"] += latest_drink["servings"]
+
+    save_profiles()
+
+    await calculate_bac(update, context, user_id)
+
+    await update.message.reply_text(
+        f"Viimeisin juoma lisätty ({latest_drink['servings']} annosta).\n"
+        f"BAC: {profile['BAC']:.3f}‰"
+    )
