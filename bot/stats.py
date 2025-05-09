@@ -23,6 +23,9 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bac_elim = await calculate_bac(update, context, user_id, noSaving=True)
 
     bac = profile["BAC"]
+    if bac > profile["highest_BAC"]:
+        profile["highest_BAC"] = bac
+        
     drinking_time = profile["elapsed_time"] / 3600
     drinks = profile["drink_count"]
     

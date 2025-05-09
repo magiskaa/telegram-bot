@@ -99,3 +99,52 @@ async def calculate_absorption(update: Update, context: ContextTypes.DEFAULT_TYP
         total_absorbed += absorbed_grams
 
     return total_absorbed
+
+
+def recalculate_highest_bac(user_id, drink):
+    profile = user_profiles[user_id]
+
+    current_time = time.time()
+    profile["elapsed_time"] = time.time() - profile["start_time"]
+
+    weight = profile["weight"]
+    gender = profile["gender"]
+    age = profile["age"]
+    height = profile["height"]
+
+    if gender == "mies":
+        TBW = 2.447 - 0.09516 * age + 0.1074 * height + 0.3362 * weight
+    else:
+        TBW = -2.097 + 0.1069 * height + 0.2466 * weight
+
+    r = TBW / weight
+
+    gender_factor = 1.0 if profile["gender"] == "mies" else 1.15
+
+    drink_elapsed_time = (current_time - drink["timestamp"]) / 3600
+    
+    k = 3 * (64/weight)**0.25 * gender_factor
+
+    c = drink["percentage"]
+    if c <= 4:
+        concentration_factor = 0.9
+    elif 4 < c < 20:
+        concentration_factor = 0.9 + (c - 4) * (1.2 - 0.9) / (20 - 4)
+    elif 20 <= c <= 30:
+        concentration_factor = 1.2
+    elif 30 < c <= 60:
+        concentration_factor = 1.2 - (c - 30) * (1.2 - 0.9) / (60 - 30)
+    else:
+        concentration_factor = 0.9
+
+    k *= concentration_factor
+
+    drink_grams = drink["servings"] * 12
+    absorbed_grams = drink_grams * (1 - math.e**(-k * drink_elapsed_time**1.1))
+
+    if drink_elapsed_time > 2:
+        absorbed_grams = drink_grams
+
+    drink_bac = absorbed_grams / (weight*1000 * r) * 100
+
+    profile["highest_BAC"] -= drink_bac * 10

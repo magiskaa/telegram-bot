@@ -236,7 +236,7 @@ def main():
         job_queue = app.job_queue
         job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
         job_queue.run_daily(reset_drink_stats, datetime_time(hour=9, minute=0, second=2)) # This is 12:00.02
-        job_queue.run_repeating(bac_update, interval=30, first=0)
+        job_queue.run_repeating(bac_update, interval=10, first=0)
 
         app.run_polling()
     except Exception as e:

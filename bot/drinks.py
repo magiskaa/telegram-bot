@@ -2,7 +2,7 @@ import time
 import re
 from bot.save_and_load import save_profiles, user_profiles
 from bot.utils import name_conjugation
-from bot.calculations import calculate_alcohol, calculate_bac
+from bot.calculations import calculate_alcohol, calculate_bac, recalculate_highest_bac
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 
@@ -50,12 +50,9 @@ async def get_percentage(update: Update, context: ContextTypes.DEFAULT_TYPE):
         profile["drink_count"] += servings
 
         if context.user_data["size"] < 0:
-            if profile["highest_BAC"] > 0.1:
-                profile["highest_BAC"] -= 0.1
-            else:
-                profile["highest_BAC"] = 0.0 
             for drink in reversed(profile["drink_history"]):
                 if drink["size"] == abs(context.user_data["size"]) and drink["percentage"] == context.user_data["percentage"]:
+                    recalculate_highest_bac(user_id, drink)
                     profile["drink_history"].remove(drink)
                     if len(profile["drink_history"]) == 0:
                         profile["drink_count"] = 0
@@ -246,6 +243,8 @@ async def delete_last_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     profile["drink_count"] -= profile["drink_history"][-1]["servings"]
 
+    recalculate_highest_bac(user_id, profile["drink_history"][-1])
+
     profile["drink_history"].pop()
 
     if len(profile["drink_history"]) == 0:
@@ -256,10 +255,6 @@ async def delete_last_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         profile["highest_BAC"] = 0
         save_profiles()
     else:
-        if profile["highest_BAC"] > 0.1:
-            profile["highest_BAC"] -= 0.1
-        else:
-            profile["highest_BAC"] = 0.0
         profile["BAC"] = await calculate_bac(update, context, user_id)
 
     await update.message.reply_text("Viimeisin juoma poistettu.")
