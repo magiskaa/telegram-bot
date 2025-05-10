@@ -119,11 +119,11 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     keyboard = [
-        [InlineKeyboardButton("Muokkaa sukupuolta", callback_data="edit_gender")],
-        [InlineKeyboardButton("Muokkaa ikää", callback_data="edit_age")],
-        [InlineKeyboardButton("Muokkaa pituutta", callback_data="edit_height")],
-        [InlineKeyboardButton("Muokkaa painoa", callback_data="edit_weight")],
-        [InlineKeyboardButton("Muokkaa lempijuomaa", callback_data="edit_favorite")],
+        [InlineKeyboardButton("♀️♂️Muokkaa sukupuolta", callback_data="edit_gender")],
+        [InlineKeyboardButton("👩‍🦰👨‍🦳Muokkaa ikää", callback_data="edit_age")],
+        [InlineKeyboardButton("1️⃣6️⃣0️⃣Muokkaa pituutta", callback_data="edit_height")],
+        [InlineKeyboardButton("🏋️⚖️Muokkaa painoa", callback_data="edit_weight")],
+        [InlineKeyboardButton("😍🍺Muokkaa lempijuomaa", callback_data="edit_favorite")],
     ]
 
     await update.message.reply_text(

@@ -3,11 +3,22 @@ import re
 from bot.save_and_load import save_profiles, user_profiles
 from bot.utils import name_conjugation
 from bot.calculations import calculate_alcohol, calculate_bac, recalculate_highest_bac
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 
 SIZE, PERCENTAGE = range(2)
 FORGOTTEN_DRINK, FORGOTTEN_TIME = range(2)
+
+COMMON_DRINKS = [
+    ("🍺Olut (0.33l, 4.2%)", 0.33, 4.2),
+    ("🍺Olut (0.5l, 8.0%)", 0.5, 5.0),
+    ("🐙Lonkero (0.33l, 5.5%)", 0.33, 5.5),
+    ("🐙Lonkero (0.5l, 5.5%)", 0.5, 5.5),
+    ("🍐Siideri (0.33l, 4.7%)", 0.33, 4.7),
+    ("🍷Viini (0.12l, 13%)", 0.12, 13),
+    ("🥃Viina (0.04l, 40%)", 0.04, 40),
+    ("🤷Muu", None, None)
+]
 
 # Drink command
 async def drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -16,9 +27,71 @@ async def drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
         return
 
-    await update.message.reply_text("Minkä kokoinen juoma? Voit vähentää juoman asettamalla koon negatiiviseksi.")
-    return SIZE
+    buttons = [InlineKeyboardButton(drink[0], callback_data=f"drink_{i}") for i, drink in enumerate(COMMON_DRINKS)]
+    keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        "Valitse juoma:",
+        reply_markup=reply_markup
+    )
+
+async def drink_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data == "drink_7":
+        await query.edit_message_text("Minkä kokoinen juoma? Voit vähentää juoman asettamalla koon negatiiviseksi.")
+        return SIZE
+    elif data in ["drink_0", "drink_1", "drink_2", "drink_3", "drink_4", "drink_5", "drink_6"]:
+        await select_drink(update, context)
+
+async def select_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if not data.startswith("drink_"):
+        await query.message.reply_text("Virheellinen valinta.")
+        return
+    
+    index = int(data.split("_")[1])
+    name, size, percentage = COMMON_DRINKS[index]
+
+    user_id = str(query.from_user.id)
+    profile = user_profiles[user_id]
+    servings = calculate_alcohol(size, percentage)
+    profile["drink_count"] += servings
+
+    current_time = time.time()
+    if size <= 0.06:
+        time_adjustment = 1 * 60
+    elif size <= 0.33:
+        time_adjustment = 10 * 60
+    elif size <= 0.5:
+        time_adjustment = 15 * 60
+    else:
+        time_adjustment = 20 * 60
+
+    profile["drink_history"].append({
+        "size": size,
+        "percentage": percentage,
+        "servings": servings,
+        "timestamp": current_time - time_adjustment
+    })
+    save_profiles()
+
+    if profile["start_time"] == 0:
+        profile["start_time"] = current_time - time_adjustment
+
+    await calculate_bac(update, context, user_id)
+
+    await query.edit_message_text(
+        f"Lisätty {servings} annosta.\nBAC: {profile['BAC']:.3f}‰"
+    )
+    return ConversationHandler.END
+    
 async def get_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         size = float(update.message.text)

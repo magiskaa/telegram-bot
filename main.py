@@ -11,7 +11,7 @@ from bot.admin import (
     ANNOUNCEMENT, ANSWER, GET_STATS, GET_DRINKS
 )
 from bot.drinks import (
-    drink, get_size, get_percentage, favorite, forgotten_drink, get_forgotten_drink, 
+    drink, drink_button_handler, select_drink, get_size, get_percentage, favorite, forgotten_drink, get_forgotten_drink, 
     get_forgotten_time, delete_last_drink, drink_history, add_latest_drink,
     SIZE, PERCENTAGE, FORGOTTEN_TIME, FORGOTTEN_DRINK
 )
@@ -124,7 +124,7 @@ def main():
 
         # Setup conversation handler
         setup_conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("setup", setup), CallbackQueryHandler(button_handler)],
+            entry_points=[CommandHandler("setup", setup), CallbackQueryHandler(button_handler, pattern="^edit")],
             states={
                 GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_gender)],
                 AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_age)],
@@ -142,7 +142,7 @@ def main():
 
         # Drink conversation handler
         drink_conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("drink", drink)],
+            entry_points=[CommandHandler("drink", drink), CallbackQueryHandler(drink_button_handler, pattern="^drink")],
             states={
                 SIZE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_size)],
                 PERCENTAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_percentage)]
