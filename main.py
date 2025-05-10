@@ -11,8 +11,8 @@ from bot.admin import (
     ANNOUNCEMENT, ANSWER, GET_STATS, GET_DRINKS
 )
 from bot.drinks import (
-    drink, drink_button_handler, select_drink, get_size, get_percentage, favorite, forgotten_drink, get_forgotten_drink, 
-    get_forgotten_time, delete_last_drink, drink_history, add_latest_drink,
+    drink, drink_button_handler, get_size, get_percentage, favorite, forgotten_drink, get_forgotten_drink, 
+    get_forgotten_time, delete_last_drink, delete_drink_button_handler, drink_history, add_latest_drink,
     SIZE, PERCENTAGE, FORGOTTEN_TIME, FORGOTTEN_DRINK
 )
 from bot.setup import (
@@ -193,6 +193,7 @@ def main():
         app.add_handler(CommandHandler("group_stats", group_stats))
         app.add_handler(CommandHandler("top3", top_3))
         app.add_handler(CommandHandler("delete", delete_last_drink))
+        app.add_handler(CallbackQueryHandler(delete_drink_button_handler, pattern="^delete_"))
         app.add_handler(CommandHandler("help", help))
         
         # Admin commands

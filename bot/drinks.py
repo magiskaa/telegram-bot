@@ -10,13 +10,14 @@ SIZE, PERCENTAGE = range(2)
 FORGOTTEN_DRINK, FORGOTTEN_TIME = range(2)
 
 COMMON_DRINKS = [
-    ("🍺Olut (0.33l, 4.2%)", 0.33, 4.2),
-    ("🍺Olut (0.5l, 8.0%)", 0.5, 5.0),
-    ("🐙Lonkero (0.33l, 5.5%)", 0.33, 5.5),
-    ("🐙Lonkero (0.5l, 5.5%)", 0.5, 5.5),
-    ("🍐Siideri (0.33l, 4.7%)", 0.33, 4.7),
-    ("🍷Viini (0.12l, 13%)", 0.12, 13),
-    ("🥃Viina (0.04l, 40%)", 0.04, 40),
+    ("🍺Olut 0.33l, 4.2%", 0.33, 4.2),
+    ("🍺Olut 0.5l, 8.0%", 0.5, 8.0),
+    ("🐙Lonkero 0.33l, 5.5%", 0.33, 5.5),
+    ("🐙Lonkero 0.5l, 5.5%", 0.5, 5.5),
+    ("🍐Siideri 0.33l, 4.7%", 0.33, 4.7),
+    ("🫧Seltzer 0.33l, 4.5%", 0.33, 4.5),
+    ("🍷Viini 0.12l, 13%", 0.12, 13),
+    ("🥃Viina 0.04l, 40%", 0.04, 40),
     ("🤷Muu", None, None)
 ]
 
@@ -41,11 +42,16 @@ async def drink_button_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
     data = query.data
 
-    if data == "drink_7":
-        await query.edit_message_text("Minkä kokoinen juoma? Voit vähentää juoman asettamalla koon negatiiviseksi.")
-        return SIZE
-    elif data in ["drink_0", "drink_1", "drink_2", "drink_3", "drink_4", "drink_5", "drink_6"]:
-        await select_drink(update, context)
+    if data.startswith("drink_"):
+        index = int(data.split("_")[1])
+        if index < 0:
+            await query.edit_message_text("Virheellinen valinta.")
+            return ConversationHandler.END
+        elif index >= len(COMMON_DRINKS) - 1:
+            await query.edit_message_text("Minkä kokoinen juoma? Voit vähentää juoman asettamalla koon negatiiviseksi.")
+            return SIZE
+        else:
+            await select_drink(update, context)
 
 async def select_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -313,27 +319,66 @@ async def delete_last_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(profile["drink_history"]) == 0:
         await update.message.reply_text("Ei juomia poistettavaksi.")
         return
+    
 
-    profile["drink_count"] -= profile["drink_history"][-1]["servings"]
+    drinks = await drink_history(update, context, isDelete=True)
 
-    recalculate_highest_bac(user_id, profile["drink_history"][-1])
+    buttons = [InlineKeyboardButton(f"{i+1}. " + str(drink["size"]) + "l " + str(drink["percentage"]) + "%", callback_data=f"delete_{i}") for i, drink in enumerate(profile["drink_history"])]
+    buttons.append(InlineKeyboardButton("Peruuta", callback_data="delete_cancel"))
+    keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 
-    profile["drink_history"].pop()
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        drinks,
+        reply_markup=reply_markup
+    )
 
-    if len(profile["drink_history"]) == 0:
-        profile["drink_count"] = 0
-        profile["start_time"] = 0
-        profile["elapsed_time"] = 0
-        profile["BAC"] = 0
-        profile["highest_BAC"] = 0
-        save_profiles()
-    else:
-        profile["BAC"] = await calculate_bac(update, context, user_id)
+async def delete_drink_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
 
-    await update.message.reply_text("Viimeisin juoma poistettu.")
+    if data == "delete_cancel":
+        await query.edit_message_text("Poisto peruutettu.")
+        return ConversationHandler.END
+    elif data.startswith("delete_"):
+        index = int(data.split("_")[1])
+        user_id = str(query.from_user.id)
+        profile = user_profiles[user_id]
+
+        if index < 0 or index >= len(profile["drink_history"]):
+            await query.edit_message_text("Virheellinen valinta.")
+            return ConversationHandler.END
+
+        drink = profile["drink_history"][index]
+        servings = drink["servings"]
+
+        profile["drink_history"].pop(index)
+
+        if len(profile["drink_history"]) == 0:
+            profile["drink_count"] = 0
+            profile["start_time"] = 0
+            profile["elapsed_time"] = 0
+            profile["BAC"] = 0
+            profile["highest_BAC"] = 0
+            save_profiles()
+            await query.edit_message_text("Juomahistoria tyhjennetty.")
+            return ConversationHandler.END
+        else:
+            if index == 0:
+                profile["start_time"] = profile["drink_history"][0]["timestamp"]
+            
+            profile["drink_count"] -= servings
+            recalculate_highest_bac(user_id, drink)
+            await calculate_bac(update, context, user_id)
+            await query.edit_message_text(
+                f"Poistettu juoma: {index+1}. {drink['size']}l {drink['percentage']}% "
+                f"({servings} annosta).\n"
+            )
+            return ConversationHandler.END
 
 # Drink history command
-async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE, isDelete=False):
     user_id = str(update.message.from_user.id)
     profile = user_profiles[user_id]
     if user_id not in user_profiles:
@@ -362,7 +407,10 @@ async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Juoman lopetus: {time.strftime('%H:%M:%S', time.gmtime(drink['timestamp'] + 3 * 3600 + time_adjustment))}\n\n"
         )
 
-    await update.message.reply_text(history_text)
+    if isDelete:
+        return history_text
+    else:
+        await update.message.reply_text(history_text)
 
 # Latest drink command
 async def add_latest_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
