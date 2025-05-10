@@ -2,7 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from bot.save_and_load import save_profiles, user_profiles
 
-GENDER, AGE, HEIGHT, WEIGHT, UPDATE_AGE, UPDATE_GENDER, UPDATE_HEIGHT, UPDATE_WEIGHT, FAVORITE_SETUP = range(9)
+GENDER, AGE, HEIGHT, WEIGHT, UPDATE_AGE, UPDATE_GENDER, UPDATE_HEIGHT, UPDATE_WEIGHT = range(8)
 FAVORITE = 1
 
 # Setup command
@@ -71,9 +71,27 @@ async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "elapsed_time": 0,
             "BAC": 0,
             "highest_BAC": 0,
-            "favorite_drink_size": "ei määritetty",
-            "favorite_drink_percentage": "ei määritetty",
-            "favorite_drink_name": "ei määritetty",
+            "favorites": [
+            {
+                "name": "ei määritetty",
+                "size": 0,
+                "percentage": 0
+            },
+            {
+                "name": "ei määritetty",
+                "size": 0,
+                "percentage": 0
+            },
+            {
+                "name": "ei määritetty",
+                "size": 0,
+                "percentage": 0
+            },
+            {
+                "name": "ei määritetty",
+                "size": 0,
+                "percentage": 0
+            }],
             "BAC_1_7": 0,
             "BAC_2_0": 0,
             "BAC_2_3": 0,
@@ -102,20 +120,13 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
         return
     
-    if profile["favorite_drink_size"] == "ei määritetty":
-        favorite_drink_text = ""
-    else:
-        favorite_drink_text = f"{profile['favorite_drink_name'].capitalize()}: {profile['favorite_drink_size'].replace('.', ',')}l {profile['favorite_drink_percentage'].replace('.', ',')}%"
-
     profile_text = (
         f"{profile['name'].capitalize()}n profiili\n"
-        f"\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\\=\n"
+        f"=========================\n"
         f"Sukupuoli: {profile['gender']}\n"
         f"Ikä: {profile['age']} vuotta\n"
         f"Pituus: {profile['height']} cm\n"
-        f"Paino: {profile['weight']} kg\n"
-        f"Lempijuoma: {profile['favorite_drink_name']}\n"
-        f"{favorite_drink_text}"
+        f"Paino: {profile['weight']} kg"
     )
 
     keyboard = [
@@ -123,13 +134,12 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("👩‍🦰👨‍🦳Muokkaa ikää", callback_data="edit_age")],
         [InlineKeyboardButton("1️⃣6️⃣0️⃣Muokkaa pituutta", callback_data="edit_height")],
         [InlineKeyboardButton("🏋️⚖️Muokkaa painoa", callback_data="edit_weight")],
-        [InlineKeyboardButton("😍🍺Muokkaa lempijuomaa", callback_data="edit_favorite")],
+        [InlineKeyboardButton("❌Peruuta", callback_data="edit_cancel")],
     ]
 
     await update.message.reply_text(
         profile_text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="MarkdownV2"
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 async def update_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -216,44 +226,87 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "edit_weight":
         await query.message.reply_text("Kirjoita uusi paino kiloina:")
         return UPDATE_WEIGHT
-    elif data == "edit_favorite":
-        await query.message.reply_text("Kirjoita uusi lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari):")
-        return FAVORITE_SETUP
+    elif data == "edit_cancel":
+        await query.edit_message_text("Peruutettu.")
+        return ConversationHandler.END
 
 # Favorite drink setup command
 async def favorite_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
+    profile = user_profiles[user_id]
     if user_id not in user_profiles:
         await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
         return
 
-    await update.message.reply_text("Kirjoita lempijuomasi koko, prosentit ja nimi: (esim. 0.33 4.2 kupari)")
-    return FAVORITE
+    buttons = [
+        InlineKeyboardButton("1. Muokkaa", callback_data="modify_1"),
+        InlineKeyboardButton("2. Muokkaa", callback_data="modify_2"),
+        InlineKeyboardButton("3. Muokkaa", callback_data="modify_3"),
+        InlineKeyboardButton("4. Muokkaa", callback_data="modify_4"),
+        InlineKeyboardButton("❌Peruuta", callback_data="modify_cancel"),
+    ]
+    keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+
+    first = profile["favorites"][0]
+    second = profile["favorites"][1]
+    third = profile["favorites"][2]
+    fourth = profile["favorites"][3]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        "Valitse mitä lempijuomaasi muokkaat:\n"
+        f"1. {first['name']} {first['size']}l, {first['percentage']}%\n"
+        f"2. {second['name']} {second['size']}l, {second['percentage']}%\n"
+        f"3. {third['name']} {third['size']}l, {third['percentage']}%\n"
+        f"4. {fourth['name']} {fourth['size']}l, {fourth['percentage']}%",
+        reply_markup=reply_markup
+    )
+
+async def favorite_drink_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data == "modify_cancel":
+        await query.edit_message_text("Peruutettu.")
+        return ConversationHandler.END
+    elif data.startswith("modify_"):
+        drink_index = int(data.split("_")[1]) - 1
+        context.user_data["favorite_drink_index"] = drink_index
+        await query.edit_message_text("Kirjoita uusi lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari):")
+        return FAVORITE
+    else:
+        await query.edit_message_text("Virheellinen valinta.")
+        return ConversationHandler.END
 
 async def get_favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        favorite = update.message.text
+        favorite = update.message.text.strip().replace(",", ".")
         favorite_size, favorite_percentage, favorite_name = favorite.split()
+        favorite_size = float(favorite_size)
+        favorite_percentage = float(favorite_percentage)
+        favorite_name = favorite_name.capitalize()
 
-        if float(favorite_size) <= 0:
+        if favorite_size <= 0:
             raise ValueError("Koko ei voi olla nolla tai negatiivinen.")
-        elif float(favorite_percentage) > 100 or float(favorite_percentage) <= 0:
+        elif favorite_percentage > 100 or favorite_percentage <= 0:
             raise ValueError("Prosentti ei voi olla negatiivinen, 0 tai yli 100.")
 
         user_id = str(update.message.from_user.id)
         profile = user_profiles[user_id]
 
-        profile["favorite_drink_size"] = favorite_size
-        profile["favorite_drink_percentage"] = favorite_percentage
-        profile["favorite_drink_name"] = favorite_name
+        drink = profile["favorites"][context.user_data["favorite_drink_index"]]
+        drink["name"] = favorite_name
+        drink["size"] = favorite_size
+        drink["percentage"] = favorite_percentage
 
         save_profiles()
 
-        await update.message.reply_text(f"Lempijuomasi on nyt {favorite_name}.")
+        await update.message.reply_text(f"{context.user_data['favorite_drink_index'] + 1}. Lempijuomasi on nyt {favorite_name}.")
         return ConversationHandler.END
     except ValueError as e:
         if "Koko ei" in str(e) or "Prosentti ei" in str(e):
             await update.message.reply_text(f"Virheellinen syöte. {e}")
         else:
-            await update.message.reply_text("Virheellinen syöte. Kirjoita lempijuomasi koko, prosentit ja nimi: (esim. 0.33 4.2 kupari)")
+            await update.message.reply_text("Virheellinen syöte. Kirjoita lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari):")
         return FAVORITE

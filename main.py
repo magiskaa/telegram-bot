@@ -11,14 +11,14 @@ from bot.admin import (
     ANNOUNCEMENT, ANSWER, GET_STATS, GET_DRINKS
 )
 from bot.drinks import (
-    drink, drink_button_handler, get_size, get_percentage, favorite, forgotten_drink, get_forgotten_drink, 
+    drink, drink_button_handler, get_drink, favorite, favorite_button_handler, forgotten_drink, get_forgotten_drink, 
     get_forgotten_time, delete_last_drink, delete_drink_button_handler, drink_history, add_latest_drink,
-    SIZE, PERCENTAGE, FORGOTTEN_TIME, FORGOTTEN_DRINK
+    DRINK, FORGOTTEN_TIME, FORGOTTEN_DRINK
 )
 from bot.setup import (
     setup, get_gender, get_age, get_height, get_weight, profile, update_gender, update_age, 
-    update_height, update_weight, button_handler, favorite_drink, get_favorite,
-    GENDER, AGE, HEIGHT, WEIGHT, UPDATE_GENDER, UPDATE_AGE, UPDATE_HEIGHT, UPDATE_WEIGHT, FAVORITE_SETUP, FAVORITE
+    update_height, update_weight, button_handler, favorite_drink, favorite_drink_button_handler, get_favorite,
+    GENDER, AGE, HEIGHT, WEIGHT, UPDATE_GENDER, UPDATE_AGE, UPDATE_HEIGHT, UPDATE_WEIGHT, FAVORITE
 )
 
 ASK = 1
@@ -124,7 +124,7 @@ def main():
 
         # Setup conversation handler
         setup_conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("setup", setup), CallbackQueryHandler(button_handler, pattern="^edit")],
+            entry_points=[CommandHandler("setup", setup), CallbackQueryHandler(button_handler, pattern="^edit_")],
             states={
                 GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_gender)],
                 AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_age)],
@@ -133,8 +133,7 @@ def main():
                 UPDATE_GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_gender)],
                 UPDATE_AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_age)],
                 UPDATE_HEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_height)],
-                UPDATE_WEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_weight)],
-                FAVORITE_SETUP: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_favorite)],
+                UPDATE_WEIGHT: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_weight)]
             },
             fallbacks=[CommandHandler("cancel", cancel)]
         )
@@ -142,10 +141,9 @@ def main():
 
         # Drink conversation handler
         drink_conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("drink", drink), CallbackQueryHandler(drink_button_handler, pattern="^drink")],
+            entry_points=[CommandHandler("drink", drink), CallbackQueryHandler(drink_button_handler, pattern="^drink_")],
             states={
-                SIZE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_size)],
-                PERCENTAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_percentage)]
+                DRINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_drink)]
             },
             fallbacks=[CommandHandler("cancel", cancel)]
         )
@@ -153,11 +151,11 @@ def main():
 
         # Favorite drink conversation handler
         favorite_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("favorite_setup", favorite_drink)],
-        states={
-            FAVORITE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_favorite)]
-        },
-        fallbacks=[CommandHandler("cancel", cancel)]
+            entry_points=[CommandHandler("favorite_setup", favorite_drink), CallbackQueryHandler(favorite_drink_button_handler, pattern="^modify_")],
+            states={
+                FAVORITE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_favorite)]
+            },
+            fallbacks=[CommandHandler("cancel", cancel)]
         )
         app.add_handler(favorite_conv_handler)
 
@@ -185,6 +183,7 @@ def main():
         # User commands
         app.add_handler(CommandHandler("profile", profile))
         app.add_handler(CommandHandler("favorite", favorite))
+        app.add_handler(CallbackQueryHandler(favorite_button_handler, pattern="^favorite_"))
         app.add_handler(CommandHandler("add_last", add_latest_drink))
         app.add_handler(CommandHandler("stats", stats))
         app.add_handler(CommandHandler("pb", personal_best))
@@ -228,7 +227,7 @@ def main():
         app.add_handler(CommandHandler("group_id", group_id))
         app.add_handler(CommandHandler("reset_top3", reset_top_3))
         app.add_handler(CommandHandler("saved_announcement", send_saved_announcement))
-        app.add_handler(CommandHandler("a", admin))
+        app.add_handler(CommandHandler("admin", admin))
 
         # Error handler
         app.add_error_handler(error_handler)
