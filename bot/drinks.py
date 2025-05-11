@@ -1,7 +1,7 @@
 import time
 import re
 from bot.save_and_load import save_profiles, user_profiles
-from bot.utils import name_conjugation
+from bot.utils import name_conjugation, validate_profile
 from bot.calculations import calculate_alcohol, calculate_bac, recalculate_highest_bac
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
@@ -23,10 +23,9 @@ COMMON_DRINKS = [
 
 # Drink command
 async def drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
-    if user_id not in user_profiles:
-        await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
-        return
+    result = await validate_profile(update, context)
+    if result:
+        return ConversationHandler.END
 
     buttons = [InlineKeyboardButton(drink[0], callback_data=f"drink_{i}") for i, drink in enumerate(COMMON_DRINKS)]
     buttons.append(InlineKeyboardButton("❌Peruuta", callback_data="drink_cancel"))
@@ -155,12 +154,12 @@ async def get_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Favorite command
 async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await validate_profile(update, context)
+    if result:
+        return ConversationHandler.END
+    
     user_id = str(update.message.from_user.id)
     profile = user_profiles[user_id]
-    if user_id not in user_profiles:
-        await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
-        return
-    
     first = profile["favorites"][0]
     second = profile["favorites"][1]
     third = profile["favorites"][2]
@@ -244,10 +243,9 @@ async def favorite_button_handler(update: Update, context: ContextTypes.DEFAULT_
 
 # Forgotten drink command
 async def forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
-    if user_id not in user_profiles:
-        await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
-        return
+    result = await validate_profile(update, context)
+    if result:
+        return ConversationHandler.END
 
     await update.message.reply_text("Kirjoita unohtuneen juoman koko ja prosentit: (esim. 0.33 4.2)")
     return FORGOTTEN_DRINK
@@ -317,21 +315,20 @@ async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 # Delete last drink command
 async def delete_last_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
-    if user_id not in user_profiles:
-        await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
-        return
+    result = await validate_profile(update, context)
+    if result:
+        return ConversationHandler.END
 
+    user_id = str(update.message.from_user.id)
     profile = user_profiles[user_id]
     if len(profile["drink_history"]) == 0:
         await update.message.reply_text("Ei juomia poistettavaksi.")
         return
-    
 
     drinks = await drink_history(update, context, isDelete=True)
 
     buttons = [InlineKeyboardButton(f"{i+1}. " + str(drink["size"]) + "l " + str(drink["percentage"]) + "%", callback_data=f"delete_{i}") for i, drink in enumerate(profile["drink_history"])]
-    buttons.append(InlineKeyboardButton("Peruuta", callback_data="delete_cancel"))
+    buttons.append(InlineKeyboardButton("❌Peruuta", callback_data="delete_cancel"))
     keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -386,12 +383,12 @@ async def delete_drink_button_handler(update: Update, context: ContextTypes.DEFA
 
 # Drink history command
 async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE, isDelete=False):
+    result = await validate_profile(update, context)
+    if result:
+        return ConversationHandler.END
+
     user_id = str(update.message.from_user.id)
     profile = user_profiles[user_id]
-    if user_id not in user_profiles:
-        await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
-        return
-
     if len(profile["drink_history"]) == 0:
         await update.message.reply_text("Ei juomahistoriaa.")
         return
@@ -421,29 +418,31 @@ async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE, isDe
 
 # Latest drink command
 async def add_latest_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await validate_profile(update, context)
+    if result:
+        return ConversationHandler.END
+    
     user_id = str(update.message.from_user.id)
     profile = user_profiles[user_id]
-    if user_id not in user_profiles:
-        await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
-        return
-    
     if len(profile["drink_history"]) == 0:
         await update.message.reply_text("Ei juomahistoriaa.")
         return
 
-    if profile["drink_history"][-1]["size"] <= 0.06:
+    drink = profile["drink_history"][-1]
+    size = drink["size"]
+    if size <= 0.06:
         time_adjustment = 1 * 60
-    elif profile["drink_history"][-1]["size"] <= 0.33:
+    elif size <= 0.33:
         time_adjustment = 10 * 60
-    elif profile["drink_history"][-1]["size"] <= 0.5:
+    elif size <= 0.5:
         time_adjustment = 15 * 60
     else:
         time_adjustment = 20 * 60
 
     latest_drink = {
-        "size": profile["drink_history"][-1]["size"],
-        "percentage": profile["drink_history"][-1]["percentage"],
-        "servings": profile["drink_history"][-1]["servings"],
+        "size": drink["size"],
+        "percentage": drink["percentage"],
+        "servings": drink["servings"],
         "timestamp": time.time() - time_adjustment
     }
 

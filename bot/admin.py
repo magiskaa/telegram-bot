@@ -7,7 +7,7 @@ from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from bot.save_and_load import save_profiles, user_profiles
 from bot.calculations import calculate_bac
-from bot.utils import name_conjugation
+from bot.utils import name_conjugation, validate_admin
 from config.config import GROUP_ID, ADMIN_ID, OPENAI_API, ANNOUNCEMENT_TEXT
 
 ANNOUNCEMENT, ANSWER = range(2)
@@ -18,9 +18,9 @@ GET_DRINKS = 1
 
 # Admin commands
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
-        return
+    result = await validate_admin(update, context)
+    if result:
+        return ConversationHandler.END
     
     await update.message.reply_text(
         "Admin komennot:\n\n"
@@ -33,18 +33,18 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def group_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
-        return
+    result = await validate_admin(update, context)
+    if result:
+        return ConversationHandler.END
     
     group_id = update.effective_chat.id
     with open("data/group_id.txt", "w") as f:
         f.write(str(group_id))
 
 async def reset_top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
-        return
+    result = await validate_admin(update, context)
+    if result:
+        return ConversationHandler.END
     
     user_profiles["top_3"]["1"] = {
         "name": "ei kukaan",
@@ -68,9 +68,9 @@ async def reset_top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Top 3 resetattu.")
 
 async def announcement_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
-        return
+    result = await validate_admin(update, context)
+    if result:
+        return ConversationHandler.END
     
     await update.message.reply_text("Kirjoita ilmoitus, jonka haluat lähettää ryhmään.")
     return ANNOUNCEMENT
@@ -111,6 +111,10 @@ async def send_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
 async def send_saved_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await validate_admin(update, context)
+    if result:
+        return ConversationHandler.END
+    
     global saved_announcement
     if saved_announcement:
         await context.bot.send_message(chat_id=GROUP_ID, text=saved_announcement)
@@ -119,9 +123,9 @@ async def send_saved_announcement(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text("Ei tallennettuja tiedotteita.")
 
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
-        return
+    result = await validate_admin(update, context)
+    if result:
+        return ConversationHandler.END
     
     await update.message.reply_text("Kenen tilastot haluat nähdä?")
     return GET_STATS
@@ -185,9 +189,9 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
     return stats_text
 
 async def drinks(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
-        return
+    result = await validate_admin(update, context)
+    if result:
+        return ConversationHandler.END
     
     await update.message.reply_text("Kenen juomahistorian haluat nähdä?")
     return GET_DRINKS

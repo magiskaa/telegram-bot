@@ -62,16 +62,18 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
         return
 
-    user_profiles[user_id]["drink_count"] = 0
-    user_profiles[user_id]["start_time"] = 0
-    user_profiles[user_id]["elapsed_time"] = 0
-    user_profiles[user_id]["BAC"] = 0
-    user_profiles[user_id]["highest_BAC"] = 0
-    user_profiles[user_id]["BAC_1_7"] = 0
-    user_profiles[user_id]["BAC_2_0"] = 0
-    user_profiles[user_id]["BAC_2_3"] = 0
-    user_profiles[user_id]["BAC_2_7"] = 0
-    user_profiles[user_id]["drink_history"] = []
+    profile = user_profiles[user_id]
+
+    profile["drink_count"] = 0
+    profile["start_time"] = 0
+    profile["elapsed_time"] = 0
+    profile["BAC"] = 0
+    profile["highest_BAC"] = 0
+    profile["BAC_1_7"] = 0
+    profile["BAC_2_0"] = 0
+    profile["BAC_2_3"] = 0
+    profile["BAC_2_7"] = 0
+    profile["drink_history"] = []
 
     save_profiles()
 

@@ -1,6 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from bot.save_and_load import save_profiles, user_profiles
+from bot.utils import validate_profile
 
 GENDER, AGE, HEIGHT, WEIGHT, UPDATE_AGE, UPDATE_GENDER, UPDATE_HEIGHT, UPDATE_WEIGHT = range(8)
 FAVORITE = 1
@@ -114,12 +115,13 @@ async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Profile command
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await validate_profile(update, context)
+    if result:
+        return ConversationHandler.END
+    
     user_id = str(update.message.from_user.id)
     profile = user_profiles[user_id]
-    if user_id not in user_profiles:
-        await update.message.reply_text("Profiilia ei löydy. Käytä /setup komentoa ensin.")
-        return
-    
+
     profile_text = (
         f"{profile['name'].capitalize()}n profiili\n"
         f"=========================\n"
@@ -232,11 +234,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Favorite drink setup command
 async def favorite_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await validate_profile(update, context)
+    if result:
+        return ConversationHandler.END
+    
     user_id = str(update.message.from_user.id)
     profile = user_profiles[user_id]
-    if user_id not in user_profiles:
-        await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
-        return
 
     buttons = [
         InlineKeyboardButton("1. Muokkaa", callback_data="modify_1"),

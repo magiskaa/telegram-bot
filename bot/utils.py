@@ -1,3 +1,8 @@
+from telegram import Update
+from telegram.ext import ContextTypes
+from bot.save_and_load import user_profiles
+from config.config import ADMIN_ID
+
 def name_conjugation(name, ending):
     name = name.strip()
     if ending == "lle":
@@ -39,3 +44,18 @@ def get_group_id():
     with open("data/group_id.txt", "r") as f:
         group_id = int(f.read().strip())
     return group_id
+
+async def validate_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    if user_id not in user_profiles:
+        await update.message.reply_text("Et ole vielä määrittänyt profiiliasi. Käytä /setup komentoa ensin.")
+        return True
+    else:
+        return False
+
+async def validate_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_ID:
+        await update.message.reply_text("Sinulla ei ole oikeuksia tähän komentoon.")
+        return True
+    else:
+        return False

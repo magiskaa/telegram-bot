@@ -1,4 +1,5 @@
 import openai
+import time
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from datetime import time as datetime_time
@@ -103,17 +104,15 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Error handler
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id if isinstance(update, Update) else None
-    if user_id in user_profiles:
-        text = f"Handler error: {context.error}. User: {user_profiles[user_id]['name']}"
-    else:
-        text = f"Handler error: {context.error}. No user information available."
-    
     try:
-        await context.bot.send_message(chat_id=ADMIN_ID, text=text)
-        print(f"Error message sent to admin: {text}")
+        await context.bot.send_message(chat_id=ADMIN_ID, text=f"Handler error: {context.error}")
+        print(f"Error message sent to admin: {context.error}")
+        with open("data/error_log.txt", "a") as f:
+            f.write(f"{time.time()} - Handler error: {context.error}\n")
     except Exception as e:
         print(f"Failed to send error message to admin: {e}")
+        with open("data/error_log.txt", "a") as f:
+            f.write(f"{time.time()} - Error sending message: {e}\n")
 
 
 def main():
