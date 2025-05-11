@@ -1,12 +1,11 @@
-import random
 import math
 import openai
 import time
-import telegram
+from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from bot.save_and_load import save_profiles, user_profiles
-from bot.calculations import calculate_bac
+from bot.calculations import calculate_bac, calculate_peak_bac
 from bot.utils import name_conjugation, validate_admin, get_timezone, time_adjustment
 from config.config import GROUP_ID, ADMIN_ID, OPENAI_API, ANNOUNCEMENT_TEXT
 
@@ -23,7 +22,7 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
     
     await update.message.reply_text(
-        "Admin komennot:\n\n"
+        "👨‍💻Admin komennot:\n\n"
         "/group_id\n\n"
         "/reset_top3\n\n"
         "/announcement\n\n"
@@ -157,31 +156,39 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
     
     bac_elim = await calculate_bac(update, context, user_id, noSaving=True)
 
+    bac_max = calculate_peak_bac(user_id)
+
     name = profile['name'].capitalize()
     bac = profile["BAC"]
     drinking_time = profile["elapsed_time"] / 3600
     drinks = profile["drink_count"]
+
+    if bac*10 > profile["highest_BAC"]:
+        profile["highest_BAC"] = bac
     
     if bac > 0:
         context.user_data["max_BAC"] -= bac_elim * drinking_time
         hours_until_sober = context.user_data["max_BAC"] / bac_elim
         sober_timestamp = get_timezone() + (hours_until_sober * 3600)
-        sober_time_str = time.strftime("%H:%M", time.gmtime(sober_timestamp))
+        sober_time_str = datetime.fromtimestamp(sober_timestamp).strftime("%H:%M")
         sober_text = f"{name} on selvinpäin noin klo {sober_time_str}."
     else:
         sober_text = f"{name} on jo selvinpäin."
 
+    peak_text = "Huippu saavutettu." if profile["highest_BAC"] >= bac_max else f"{bac_max:.3f}‰."
+
     drinking_time_h = math.floor(drinking_time)
     drinking_time_m = int(drinking_time % 1 * 60)
     stats_text = (
-        f"{name_conjugation(profile['name'], 'n')} statsit\n"
+        f"📊{name_conjugation(profile['name'], 'n')} statsit\n"
         f"==========================\n"
-        f"Alkoholin määrä: {drinks:.2f} annosta.\n"
-        f"Aloitus: {time.strftime('%H:%M:%S', time.gmtime(profile['start_time']))}.\n"
+        f"{name} on nauttinut {drinks:.2f} annosta.\n"
+        f"{name} aloitti klo {datetime.fromtimestamp(profile['start_time']).strftime("%H:%M:%S")}.\n"
         f"{name} on juonut {drinking_time_h}h {drinking_time_m}min.\n"
-        f"Arvioitu BAC: {bac*10:.3f}‰.\n"
-        f"Korkein BAC: {profile['highest_BAC']:.3f}‰.\n"
-        f"{sober_text}"
+        f"{sober_text}\n\n"
+        f"Arvioitu BAC nyt: *{bac:.3f}‰*.\n"
+        f"Illan korkein BAC: *{profile['highest_BAC']:.3f}‰*.\n"
+        f"Tuleva korkein BAC: *{peak_text}*"
     )
     
     save_profiles()
@@ -212,7 +219,7 @@ async def get_drinks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return GET_DRINKS
 
     drinks = await show_drinks(update, context, profile)
-    await context.bot.send_message(chat_id=ADMIN_ID, text=drinks)
+    await context.bot.send_message(chat_id=ADMIN_ID, text=drinks, parse_mode="Markdown")
     return ConversationHandler.END
 
 async def show_drinks(update: Update, context: ContextTypes.DEFAULT_TYPE, profile):
@@ -221,14 +228,14 @@ async def show_drinks(update: Update, context: ContextTypes.DEFAULT_TYPE, profil
         return
 
     history_text = (
-        f"{name_conjugation(profile['name'], 'n')} juomahistoria\n"
+        f"🍻{name_conjugation(profile['name'], 'n')} juomahistoria\n"
         "==========================\n"
     )
     for i, drink in enumerate(profile["drink_history"], 1):
         time_adj = time_adjustment(drink["size"])
         history_text += (
-            f"{i}. {drink['size']}l {drink['percentage']}% ({drink['servings']} annosta)\n"
-            f"Juoman lopetus: {time.strftime('%H:%M:%S', time.gmtime(drink['timestamp'] + time_adj))}\n\n"
+            f"{i}. *{drink['size']}l* *{drink['percentage']}%* ({drink['servings']} annosta)\n"
+            f"Juoman lopetus: {datetime.fromtimestamp(drink["timestamp"] + time_adj).strftime("%H:%M:%S")}\n\n"
         )
 
     return history_text

@@ -1,5 +1,6 @@
 import time
 import re
+from datetime import datetime, timedelta
 from bot.save_and_load import save_profiles, user_profiles
 from bot.utils import name_conjugation, validate_profile, get_timezone, time_adjustment
 from bot.calculations import calculate_alcohol, calculate_bac, recalculate_highest_bac
@@ -93,7 +94,8 @@ async def select_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await calculate_bac(update, context, user_id)
 
     await query.edit_message_text(
-        f"Lisätty {servings} annosta.\nBAC: {profile['BAC']:.3f}‰"
+        f"Lisätty {servings} annosta.\nBAC: *{profile['BAC']:.3f}‰*",
+        parse_mode="Markdown"
     )
     return ConversationHandler.END
     
@@ -128,7 +130,7 @@ async def get_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await calculate_bac(update, context, user_id)
         
-        await update.message.reply_text(f"Lisätty {servings} annosta.\nBAC: {profile['BAC']:.3f}‰")
+        await update.message.reply_text(f"Lisätty {servings} annosta.\nBAC: *{profile['BAC']:.3f}‰*", parse_mode="Markdown")
         
         return ConversationHandler.END
     except ValueError as e:
@@ -162,7 +164,7 @@ async def favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        f"{name_conjugation(profile['name'], 'n')} suosikkijuomat\n"
+        f"😍{name_conjugation(profile['name'], 'n')} suosikkijuomat\n"
         "===========================\n"
         f"1. {first['name']} {first['size']}l, {first['percentage']}%\n"
         f"2. {second['name']} {second['size']}l, {second['percentage']}%\n"
@@ -212,8 +214,9 @@ async def favorite_button_handler(update: Update, context: ContextTypes.DEFAULT_
         await calculate_bac(update, context, user_id)
 
         await query.edit_message_text(
-            f"{drink['name']} +1 ({servings} annosta).\n"
-            f"BAC: {profile['BAC']:.3f}‰"
+            f"😋{drink['name']} +1 ({servings} annosta).\n"
+            f"BAC: *{profile['BAC']:.3f}‰*",
+            parse_mode="Markdown"
         )
         return ConversationHandler.END
     else:
@@ -266,13 +269,18 @@ async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
     servings = calculate_alcohol(context.user_data["forgotten_size"], context.user_data["forgotten_percentage"])
     profile["drink_count"] += servings
 
-    timestamp = time.mktime(time.strptime(f"{time.strftime('%Y-%m-%d')} {forgotten_time}", "%Y-%m-%d %H:%M"))
+    now = datetime.now()
+    drink_time = datetime.strptime(forgotten_time, "%H:%M").time()
+    drink_datetime = datetime.combine(now.date(), drink_time)
+    if drink_datetime > now:
+        drink_datetime -= timedelta(days=1)
+    timestamp = drink_datetime.timestamp()
 
     profile["drink_history"].append({
         "size": context.user_data["forgotten_size"],
         "percentage": context.user_data["forgotten_percentage"],
         "servings": servings,
-        "timestamp": timestamp - 3 * 3600
+        "timestamp": timestamp
     })
 
     if profile["start_time"] == 0:
@@ -285,10 +293,11 @@ async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await calculate_bac(update, context, user_id)
 
     await update.message.reply_text(
-        f"Lisätty unohtunut juoma: {context.user_data['forgotten_size']}l "
+        f"🤔Lisätty unohtunut juoma: {context.user_data['forgotten_size']}l "
         f"{context.user_data['forgotten_percentage']}% ({servings} annosta).\n"
         f"Juomasi aloitusaika: {forgotten_time}.\n"
-        f"Arvioitu BAC: {profile['BAC']:.3f}‰"
+        f"Arvioitu BAC: *{profile['BAC']:.3f}‰*",
+        parse_mode="Markdown"
     )
     return ConversationHandler.END
 
@@ -313,7 +322,8 @@ async def delete_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         drinks,
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
     )
 
 async def delete_drink_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -355,8 +365,9 @@ async def delete_drink_button_handler(update: Update, context: ContextTypes.DEFA
             recalculate_highest_bac(user_id, drink)
             await calculate_bac(update, context, user_id)
             await query.edit_message_text(
-                f"Poistettu juoma: {index+1}. {drink['size']}l {drink['percentage']}% "
-                f"({servings} annosta).\n"
+                f"⏏️Poistettu juoma:\n{index+1}. *{drink['size']}l* *{drink['percentage']}%* ({servings} annosta).\n"
+                f"Juoman lopetus: {datetime.fromtimestamp(drink['timestamp']).strftime('%H:%M:%S')}\n",
+                parse_mode="Markdown"
             )
             return ConversationHandler.END
 
@@ -373,20 +384,20 @@ async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE, isDe
         return
 
     history_text = (
-        f"{name_conjugation(profile['name'], 'n')} juomahistoria\n"
+        f"🍻{name_conjugation(profile['name'], 'n')} juomahistoria\n"
         "==========================\n"
     )
     for i, drink in enumerate(profile["drink_history"], 1):
         time_adj = time_adjustment(drink["size"])
         history_text += (
-            f"{i}. {drink['size']}l {drink['percentage']}% ({drink['servings']} annosta)\n"
-            f"Juoman lopetus: {time.strftime('%H:%M:%S', time.gmtime(drink['timestamp'] + time_adj))}\n\n"
+            f"{i}. *{drink['size']}l* *{drink['percentage']}%* ({drink['servings']} annosta)\n"
+            f"Juoman lopetus: {datetime.fromtimestamp(drink["timestamp"] + time_adj).strftime("%H:%M:%S")}\n\n"
         )
 
     if isDelete:
         return history_text
     else:
-        await update.message.reply_text(history_text)
+        await update.message.reply_text(history_text, parse_mode="Markdown")
 
 # Latest drink command
 async def add_latest_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -419,6 +430,7 @@ async def add_latest_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await calculate_bac(update, context, user_id)
 
     await update.message.reply_text(
-        f"Viimeisin juoma lisätty ({latest_drink['servings']} annosta).\n"
-        f"BAC: {profile['BAC']:.3f}‰"
+        f"⏮️Viimeisin juoma lisätty ({latest_drink['servings']} annosta).\n"
+        f"BAC: *{profile['BAC']:.3f}‰*",
+        parse_mode="Markdown"
     )

@@ -1,2 +1,3 @@
 python-telegram-bot==22.0
 opeanai==0.28.0
+numpy==2.2.5

@@ -1,8 +1,8 @@
 import openai
-import time
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from datetime import time as datetime_time
+from datetime import datetime
 from config.config import BOT_TOKEN, OPENAI_API, ADMIN_ID
 from bot.save_and_load import user_profiles
 from bot.job_queue import reset_drink_stats, recap, bac_update
@@ -105,23 +105,14 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Error handler
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     try:
-        handler_name = None
-        if hasattr(context, "handler") and context.handler:
-            if hasattr(context.handler, "callback"):
-                handler_name = context.handler.callback.__name__
-            else:
-                handler_name = context.handler.__class__.__name__
-        else:
-            handler_name = "UnknownHandler"
-
-        await context.bot.send_message(chat_id=ADMIN_ID, text=f"Handler error in {handler_name}: {context.error}")
+        await context.bot.send_message(chat_id=ADMIN_ID, text=f"Handler error: {context.error}")
         print(f"Error message sent to admin: {context.error}")
         with open("data/error_log.txt", "a") as f:
-            f.write(f"{time.time()} - Handler error in {handler_name}: {context.error}\n")
+            f.write(f"{datetime.now()} - Handler error: {context.error}\n")
     except Exception as e:
         print(f"Failed to send error message to admin: {e}")
         with open("data/error_log.txt", "a") as f:
-            f.write(f"{time.time()} - Error sending message: {e}\n")
+            f.write(f"{datetime.now()} - Error sending message: {e}\n")
 
 
 def main():

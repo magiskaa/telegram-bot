@@ -123,7 +123,7 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     profile = user_profiles[user_id]
 
     profile_text = (
-        f"{name_conjugation(profile['name'], 'n')} profiili\n"
+        f"🧑{name_conjugation(profile['name'], 'n')} profiili\n"
         f"=========================\n"
         f"Sukupuoli: {profile['gender']}\n"
         f"Ikä: {profile['age']} vuotta\n"
