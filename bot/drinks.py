@@ -1,4 +1,3 @@
-import time
 import re
 from datetime import datetime, timedelta
 from bot.save_and_load import save_profiles, user_profiles
@@ -391,7 +390,7 @@ async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE, isDe
         time_adj = time_adjustment(drink["size"])
         history_text += (
             f"{i}. *{drink['size']}l* *{drink['percentage']}%* ({drink['servings']} annosta)\n"
-            f"Juoman lopetus: {datetime.fromtimestamp(drink["timestamp"] + time_adj).strftime("%H:%M:%S")}\n\n"
+            f"Juoman lopetus: {datetime.fromtimestamp(drink['timestamp'] + time_adj).strftime('%H:%M:%S')}\n\n"
         )
 
     if isDelete:

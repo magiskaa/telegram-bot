@@ -1,6 +1,5 @@
 import math
 import openai
-import time
 from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
@@ -183,7 +182,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
         f"📊{name_conjugation(profile['name'], 'n')} statsit\n"
         f"==========================\n"
         f"{name} on nauttinut {drinks:.2f} annosta.\n"
-        f"{name} aloitti klo {datetime.fromtimestamp(profile['start_time']).strftime("%H:%M:%S")}.\n"
+        f"{name} aloitti klo {datetime.fromtimestamp(profile['start_time']).strftime('%H:%M:%S')}.\n"
         f"{name} on juonut {drinking_time_h}h {drinking_time_m}min.\n"
         f"{sober_text}\n\n"
         f"Arvioitu BAC nyt: *{bac:.3f}‰*.\n"
@@ -235,7 +234,7 @@ async def show_drinks(update: Update, context: ContextTypes.DEFAULT_TYPE, profil
         time_adj = time_adjustment(drink["size"])
         history_text += (
             f"{i}. *{drink['size']}l* *{drink['percentage']}%* ({drink['servings']} annosta)\n"
-            f"Juoman lopetus: {datetime.fromtimestamp(drink["timestamp"] + time_adj).strftime("%H:%M:%S")}\n\n"
+            f"Juoman lopetus: {datetime.fromtimestamp(drink['timestamp'] + time_adj).strftime('%H:%M:%S')}\n\n"
         )
 
     return history_text
