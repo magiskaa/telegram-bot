@@ -13,7 +13,7 @@ from bot.admin import (
 )
 from bot.drinks import (
     drink, drink_button_handler, get_drink, favorite, favorite_button_handler, forgotten_drink, get_forgotten_drink, 
-    get_forgotten_time, delete_last_drink, delete_drink_button_handler, drink_history, add_latest_drink,
+    get_forgotten_time, delete_drink, delete_drink_button_handler, drink_history, add_latest_drink,
     DRINK, FORGOTTEN_TIME, FORGOTTEN_DRINK
 )
 from bot.setup import (
@@ -105,10 +105,19 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Error handler
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     try:
-        await context.bot.send_message(chat_id=ADMIN_ID, text=f"Handler error: {context.error}")
+        handler_name = None
+        if hasattr(context, "handler") and context.handler:
+            if hasattr(context.handler, "callback"):
+                handler_name = context.handler.callback.__name__
+            else:
+                handler_name = context.handler.__class__.__name__
+        else:
+            handler_name = "UnknownHandler"
+
+        await context.bot.send_message(chat_id=ADMIN_ID, text=f"Handler error in {handler_name}: {context.error}")
         print(f"Error message sent to admin: {context.error}")
         with open("data/error_log.txt", "a") as f:
-            f.write(f"{time.time()} - Handler error: {context.error}\n")
+            f.write(f"{time.time()} - Handler error in {handler_name}: {context.error}\n")
     except Exception as e:
         print(f"Failed to send error message to admin: {e}")
         with open("data/error_log.txt", "a") as f:
@@ -190,7 +199,7 @@ def main():
         app.add_handler(CommandHandler("reset", reset))
         app.add_handler(CommandHandler("group_stats", group_stats))
         app.add_handler(CommandHandler("top3", top_3))
-        app.add_handler(CommandHandler("delete", delete_last_drink))
+        app.add_handler(CommandHandler("delete", delete_drink))
         app.add_handler(CallbackQueryHandler(delete_drink_button_handler, pattern="^delete_"))
         app.add_handler(CommandHandler("help", help))
         

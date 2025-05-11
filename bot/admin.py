@@ -7,7 +7,7 @@ from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from bot.save_and_load import save_profiles, user_profiles
 from bot.calculations import calculate_bac
-from bot.utils import name_conjugation, validate_admin
+from bot.utils import name_conjugation, validate_admin, get_timezone, time_adjustment
 from config.config import GROUP_ID, ADMIN_ID, OPENAI_API, ANNOUNCEMENT_TEXT
 
 ANNOUNCEMENT, ANSWER = range(2)
@@ -165,8 +165,8 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
     if bac > 0:
         context.user_data["max_BAC"] -= bac_elim * drinking_time
         hours_until_sober = context.user_data["max_BAC"] / bac_elim
-        sober_timestamp = time.time() + (hours_until_sober * 3600)
-        sober_time_str = time.strftime("%H:%M", time.gmtime(sober_timestamp + 3 * 3600))
+        sober_timestamp = get_timezone() + (hours_until_sober * 3600)
+        sober_time_str = time.strftime("%H:%M", time.gmtime(sober_timestamp))
         sober_text = f"{name} on selvinpäin noin klo {sober_time_str}."
     else:
         sober_text = f"{name} on jo selvinpäin."
@@ -177,7 +177,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
         f"{name_conjugation(profile['name'], 'n')} statsit\n"
         f"==========================\n"
         f"Alkoholin määrä: {drinks:.2f} annosta.\n"
-        f"Aloitus: {time.strftime('%H:%M:%S', time.gmtime(profile['start_time'] + 3 * 3600))}.\n"
+        f"Aloitus: {time.strftime('%H:%M:%S', time.gmtime(profile['start_time']))}.\n"
         f"{name} on juonut {drinking_time_h}h {drinking_time_m}min.\n"
         f"Arvioitu BAC: {bac*10:.3f}‰.\n"
         f"Korkein BAC: {profile['highest_BAC']:.3f}‰.\n"
@@ -225,17 +225,10 @@ async def show_drinks(update: Update, context: ContextTypes.DEFAULT_TYPE, profil
         "==========================\n"
     )
     for i, drink in enumerate(profile["drink_history"], 1):
-        if drink['size'] <= 0.06:
-            time_adjustment = 1 * 60
-        elif drink['size'] <= 0.33:
-            time_adjustment = 10 * 60
-        elif drink['size'] <= 0.5:
-            time_adjustment = 15 * 60
-        else:
-            time_adjustment = 20 * 60
+        time_adj = time_adjustment(drink["size"])
         history_text += (
             f"{i}. {drink['size']}l {drink['percentage']}% ({drink['servings']} annosta)\n"
-            f"Juoman lopetus: {time.strftime('%H:%M:%S', time.gmtime(drink['timestamp'] + 3 * 3600 + time_adjustment))}\n\n"
+            f"Juoman lopetus: {time.strftime('%H:%M:%S', time.gmtime(drink['timestamp'] + time_adj))}\n\n"
         )
 
     return history_text

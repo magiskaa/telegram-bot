@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from bot.save_and_load import save_profiles, user_profiles
-from bot.utils import validate_profile
+from bot.utils import validate_profile, name_conjugation
 
 GENDER, AGE, HEIGHT, WEIGHT, UPDATE_AGE, UPDATE_GENDER, UPDATE_HEIGHT, UPDATE_WEIGHT = range(8)
 FAVORITE = 1
@@ -123,7 +123,7 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     profile = user_profiles[user_id]
 
     profile_text = (
-        f"{profile['name'].capitalize()}n profiili\n"
+        f"{name_conjugation(profile['name'], 'n')} profiili\n"
         f"=========================\n"
         f"Sukupuoli: {profile['gender']}\n"
         f"Ikä: {profile['age']} vuotta\n"
@@ -133,7 +133,7 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [InlineKeyboardButton("♀️♂️Muokkaa sukupuolta", callback_data="edit_gender")],
-        [InlineKeyboardButton("👩‍🦰👨‍🦳Muokkaa ikää", callback_data="edit_age")],
+        [InlineKeyboardButton("🎂🔞Muokkaa ikää", callback_data="edit_age")],
         [InlineKeyboardButton("1️⃣6️⃣0️⃣Muokkaa pituutta", callback_data="edit_height")],
         [InlineKeyboardButton("🏋️⚖️Muokkaa painoa", callback_data="edit_weight")],
         [InlineKeyboardButton("❌Peruuta", callback_data="edit_cancel")],
@@ -276,7 +276,7 @@ async def favorite_drink_button_handler(update: Update, context: ContextTypes.DE
     elif data.startswith("modify_"):
         drink_index = int(data.split("_")[1]) - 1
         context.user_data["favorite_drink_index"] = drink_index
-        await query.edit_message_text("Kirjoita uusi lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari):")
+        await query.edit_message_text("Kirjoita uusi lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari tai 0,5 8,0 karhu):")
         return FAVORITE
     else:
         await query.edit_message_text("Virheellinen valinta.")
@@ -311,5 +311,5 @@ async def get_favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if "Koko ei" in str(e) or "Prosentti ei" in str(e):
             await update.message.reply_text(f"Virheellinen syöte. {e}")
         else:
-            await update.message.reply_text("Virheellinen syöte. Kirjoita lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari):")
+            await update.message.reply_text("Virheellinen syöte. Kirjoita lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari tai 0,5 8,0 karhu):")
         return FAVORITE

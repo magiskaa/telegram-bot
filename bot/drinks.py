@@ -1,7 +1,7 @@
 import time
 import re
 from bot.save_and_load import save_profiles, user_profiles
-from bot.utils import name_conjugation, validate_profile
+from bot.utils import name_conjugation, validate_profile, get_timezone, time_adjustment
 from bot.calculations import calculate_alcohol, calculate_bac, recalculate_highest_bac
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
@@ -51,7 +51,7 @@ async def drink_button_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             await query.edit_message_text("Virheellinen valinta.")
             return ConversationHandler.END
         elif index >= len(COMMON_DRINKS) - 1:
-            await query.edit_message_text("Kirjoita juoman koko ja prosentit: (esim. 0.33 4.2)")
+            await query.edit_message_text("Kirjoita juoman koko ja prosentit: (esim. 0.33 4.2 tai 0,5 8,0)")
             return DRINK
         else:
             await select_drink(update, context)
@@ -76,26 +76,19 @@ async def select_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     servings = calculate_alcohol(size, percentage)
     profile["drink_count"] += servings
 
-    current_time = time.time()
-    if size <= 0.06:
-        time_adjustment = 1 * 60
-    elif size <= 0.33:
-        time_adjustment = 10 * 60
-    elif size <= 0.5:
-        time_adjustment = 15 * 60
-    else:
-        time_adjustment = 20 * 60
+    current_time = get_timezone()
+    time_adj = time_adjustment(size)
 
     profile["drink_history"].append({
         "size": size,
         "percentage": percentage,
         "servings": servings,
-        "timestamp": current_time - time_adjustment
+        "timestamp": current_time - time_adj
     })
     save_profiles()
 
     if profile["start_time"] == 0:
-        profile["start_time"] = current_time - time_adjustment
+        profile["start_time"] = current_time - time_adj
 
     await calculate_bac(update, context, user_id)
 
@@ -119,26 +112,19 @@ async def get_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         servings = calculate_alcohol(size, percentage)
         profile["drink_count"] += servings
 
-        current_time = time.time()
-        if size <= 0.06:
-            time_adjustment = 1 * 60
-        elif size <= 0.33:
-            time_adjustment = 10 * 60
-        elif size <= 0.5:
-            time_adjustment = 15 * 60
-        else:
-            time_adjustment = 20 * 60
+        current_time = get_timezone()
+        time_adj = time_adjustment(size)
 
         profile["drink_history"].append({
             "size": size,
             "percentage": percentage,
             "servings": servings,
-            "timestamp": current_time - time_adjustment
+            "timestamp": current_time - time_adj
         })
         save_profiles()
 
         if profile["start_time"] == 0:
-            profile["start_time"] = current_time - time_adjustment
+            profile["start_time"] = current_time - time_adj
 
         await calculate_bac(update, context, user_id)
         
@@ -149,7 +135,7 @@ async def get_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if "Koko ei" in str(e) or "Prosentit ei" in str(e):
             await update.message.reply_text(f"Virheellinen syöte. {e}")
         else:
-            await update.message.reply_text("Virheellinen syöte. Kirjoita juoman koko ja prosentit: (esim. 0.33 4.2)")
+            await update.message.reply_text("Virheellinen syöte. Kirjoita juoman koko ja prosentit: (esim. 0.33 4.2 tai 0,5 8,0)")
         return DRINK
 
 # Favorite command
@@ -209,26 +195,19 @@ async def favorite_button_handler(update: Update, context: ContextTypes.DEFAULT_
         servings = calculate_alcohol(size, percentage)
         profile["drink_count"] += servings
         
-        current_time = time.time()
-        if size <= 0.06:
-            time_adjustment = 1 * 60
-        elif size <= 0.33:
-            time_adjustment = 10 * 60
-        elif size <= 0.5:
-            time_adjustment = 15 * 60
-        else:
-            time_adjustment = 20 * 60
+        current_time = get_timezone()
+        time_adj = time_adjustment(size)
 
         profile["drink_history"].append({
             "size": size,
             "percentage": percentage,
             "servings": servings,
-            "timestamp": current_time - time_adjustment
+            "timestamp": current_time - time_adj
         })
         save_profiles()
 
         if profile["start_time"] == 0:
-            profile["start_time"] = current_time - time_adjustment
+            profile["start_time"] = current_time - time_adj
 
         await calculate_bac(update, context, user_id)
 
@@ -247,12 +226,12 @@ async def forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if result:
         return ConversationHandler.END
 
-    await update.message.reply_text("Kirjoita unohtuneen juoman koko ja prosentit: (esim. 0.33 4.2)")
+    await update.message.reply_text("Kirjoita unohtuneen juoman koko ja prosentit: (esim. 0.33 4.2 tai 0,5 8,0)")
     return FORGOTTEN_DRINK
 
 async def get_forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        forgotten = update.message.text
+        forgotten = update.message.text.strip().replace(",", ".")
         forgotten_size, forgotten_percentage = forgotten.split()
         
         size = float(forgotten_size)
@@ -272,11 +251,11 @@ async def get_forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE
         if "Koko ei" in str(e) or "Prosentti ei" in str(e):
             await update.message.reply_text(f"Virheellinen syöte. {e}")
         else:
-            await update.message.reply_text("Virheellinen syöte. Kirjoita unohtuneen juoman koko ja prosentit: (esim. 0.33 4.2)")
+            await update.message.reply_text("Virheellinen syöte. Kirjoita unohtuneen juoman koko ja prosentit: (esim. 0.33 4.2 tai 0,5 8,0)")
         return FORGOTTEN_DRINK
 
 async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    forgotten_time = update.message.text
+    forgotten_time = update.message.text.strip().replace(".", ":")
     if not re.match(r"^(?:[01]\d|2[0-3]):[0-5]\d$", forgotten_time):
         await update.message.reply_text("Virheellinen aika. Kirjoita aika muodossa HH:MM tai HH.MM.")
         return FORGOTTEN_TIME
@@ -314,7 +293,7 @@ async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return ConversationHandler.END
 
 # Delete last drink command
-async def delete_last_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def delete_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = await validate_profile(update, context)
     if result:
         return ConversationHandler.END
@@ -398,17 +377,10 @@ async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE, isDe
         "==========================\n"
     )
     for i, drink in enumerate(profile["drink_history"], 1):
-        if drink['size'] <= 0.06:
-            time_adjustment = 1 * 60
-        elif drink['size'] <= 0.33:
-            time_adjustment = 10 * 60
-        elif drink['size'] <= 0.5:
-            time_adjustment = 15 * 60
-        else:
-            time_adjustment = 20 * 60
+        time_adj = time_adjustment(drink["size"])
         history_text += (
             f"{i}. {drink['size']}l {drink['percentage']}% ({drink['servings']} annosta)\n"
-            f"Juoman lopetus: {time.strftime('%H:%M:%S', time.gmtime(drink['timestamp'] + 3 * 3600 + time_adjustment))}\n\n"
+            f"Juoman lopetus: {time.strftime('%H:%M:%S', time.gmtime(drink['timestamp'] + time_adj))}\n\n"
         )
 
     if isDelete:
@@ -430,20 +402,13 @@ async def add_latest_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     drink = profile["drink_history"][-1]
     size = drink["size"]
-    if size <= 0.06:
-        time_adjustment = 1 * 60
-    elif size <= 0.33:
-        time_adjustment = 10 * 60
-    elif size <= 0.5:
-        time_adjustment = 15 * 60
-    else:
-        time_adjustment = 20 * 60
+    time_adj = time_adjustment(size)
 
     latest_drink = {
         "size": drink["size"],
         "percentage": drink["percentage"],
         "servings": drink["servings"],
-        "timestamp": time.time() - time_adjustment
+        "timestamp": get_timezone() - time_adj
     }
 
     profile["drink_history"].append(latest_drink)

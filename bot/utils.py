@@ -1,3 +1,5 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from telegram import Update
 from telegram.ext import ContextTypes
 from bot.save_and_load import user_profiles
@@ -5,6 +7,8 @@ from config.config import ADMIN_ID
 
 def name_conjugation(name, ending):
     name = name.strip()
+    if name == "Matleena":
+        name = "Matti"
     if ending == "lle":
         if name.endswith("kko"):
             return name[:-2] + "olle"
@@ -59,3 +63,19 @@ async def validate_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return True
     else:
         return False
+
+def get_timezone():
+    return datetime.now(ZoneInfo("Europe/Helsinki")).timestamp()
+
+def time_adjustment(size):
+    if size <= 0.06:
+        time_adjustment = 1 * 60
+    elif size < 0.12:
+        time_adjustment = 5 * 60
+    elif size <= 0.33:
+        time_adjustment = 10 * 60
+    elif size <= 0.5:
+        time_adjustment = 15 * 60
+    else:
+        time_adjustment = 20 * 60
+    return time_adjustment

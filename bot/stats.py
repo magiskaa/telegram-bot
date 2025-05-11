@@ -1,12 +1,13 @@
 import random
 import math
 import time
+from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes
 from bot.save_and_load import save_profiles, user_profiles
 from config.config import TOP_3_GIFS
 from bot.calculations import calculate_bac
-from bot.utils import name_conjugation
+from bot.utils import name_conjugation, get_timezone
 
 
 # Own stats command
@@ -32,8 +33,8 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if bac > 0:
         context.user_data["max_BAC"] -= bac_elim * drinking_time
         hours_until_sober = context.user_data["max_BAC"] / bac_elim
-        sober_timestamp = time.time() + (hours_until_sober * 3600)
-        sober_time_str = time.strftime("%H:%M", time.gmtime(sober_timestamp + 3 * 3600))
+        sober_timestamp = get_timezone() + (hours_until_sober * 3600)
+        sober_time_str = time.strftime("%H:%M", time.gmtime(sober_timestamp))
         sober_text = f"Selvinpäin olet noin klo {sober_time_str}."
     else:
         sober_text = "Olet jo selvinpäin."
@@ -44,7 +45,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{name_conjugation(profile['name'], 'n')} statsit\n"
         f"==========================\n"
         f"Alkoholin määrä: {drinks:.2f} annosta.\n"
-        f"Aloitus: {time.strftime('%H:%M:%S', time.gmtime(profile['start_time'] + 3 * 3600))}.\n"
+        f"Aloitus: {time.strftime('%H:%M:%S', time.gmtime(profile['start_time']))}.\n"
         f"Olet juonut {drinking_time_h}h {drinking_time_m}min.\n"
         f"Arvioitu BAC: {bac:.3f}‰.\n"
         f"Korkein BAC: {profile['highest_BAC']:.3f}‰.\n"
