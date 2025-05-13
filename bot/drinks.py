@@ -1,5 +1,6 @@
 import re
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from bot.save_and_load import save_profiles, user_profiles
 from bot.utils import name_conjugation, validate_profile, get_timezone, time_adjustment
 from bot.calculations import calculate_alcohol, calculate_bac, recalculate_highest_bac
@@ -268,9 +269,9 @@ async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
     servings = calculate_alcohol(context.user_data["forgotten_size"], context.user_data["forgotten_percentage"])
     profile["drink_count"] += servings
 
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("Europe/Helsinki"))
     drink_time = datetime.strptime(forgotten_time, "%H:%M").time()
-    drink_datetime = datetime.combine(now.date(), drink_time)
+    drink_datetime = datetime.combine(now.date(), drink_time, tzinfo=ZoneInfo("Europe/Helsinki"))
     if drink_datetime > now:
         drink_datetime -= timedelta(days=1)
     timestamp = drink_datetime.timestamp()
