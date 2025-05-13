@@ -69,6 +69,7 @@ async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "weight": weight,
             "drink_count": 0,
             "start_time": 0,
+            "second_start": 0,
             "elapsed_time": 0,
             "BAC": 0,
             "highest_BAC": 0,

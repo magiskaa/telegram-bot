@@ -57,6 +57,7 @@ async def reset_drink_stats(context: CallbackContext):
         profile = user_profiles[user_id]
         profile["drink_count"] = 0
         profile["start_time"] = 0
+        profile["second_start"] = 0
         profile["elapsed_time"] = 0
         profile["BAC"] = 0
         profile["highest_BAC"] = 0

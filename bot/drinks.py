@@ -88,13 +88,16 @@ async def select_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     })
     save_profiles()
 
+    if profile["BAC"] == 0 and profile["start_time"] != 0:
+        profile["second_start"] = current_time - time_adj
+
     if profile["start_time"] == 0:
         profile["start_time"] = current_time - time_adj
 
     await calculate_bac(update, context, user_id)
 
     await query.edit_message_text(
-        f"Lisätty {servings} annosta.\nBAC: *{profile['BAC']:.3f}‰*",
+        f"🍺Lisätty {servings} annosta.\nBAC: *{profile['BAC']:.3f}‰*",
         parse_mode="Markdown"
     )
     return ConversationHandler.END
@@ -125,12 +128,15 @@ async def get_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         })
         save_profiles()
 
+        if profile["BAC"] == 0 and profile["start_time"] != 0:
+            profile["second_start"] = current_time - time_adj
+
         if profile["start_time"] == 0:
             profile["start_time"] = current_time - time_adj
 
         await calculate_bac(update, context, user_id)
         
-        await update.message.reply_text(f"Lisätty {servings} annosta.\nBAC: *{profile['BAC']:.3f}‰*", parse_mode="Markdown")
+        await update.message.reply_text(f"🍺Lisätty {servings} annosta.\nBAC: *{profile['BAC']:.3f}‰*", parse_mode="Markdown")
         
         return ConversationHandler.END
     except ValueError as e:
@@ -208,6 +214,9 @@ async def favorite_button_handler(update: Update, context: ContextTypes.DEFAULT_
         })
         save_profiles()
 
+        if profile["BAC"] == 0 and profile["start_time"] != 0:
+            profile["second_start"] = current_time - time_adj
+
         if profile["start_time"] == 0:
             profile["start_time"] = current_time - time_adj
 
@@ -283,10 +292,15 @@ async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "timestamp": timestamp
     })
 
+    if profile["BAC"] == 0 and profile["start_time"] != 0:
+        profile["second_start"] = timestamp
+
     if profile["start_time"] == 0:
         profile["start_time"] = timestamp
     elif timestamp < profile["start_time"]:
         profile["start_time"] = timestamp
+
+    profile["drink_history"] = sorted(profile["drink_history"], key=lambda x: x["timestamp"])
 
     save_profiles()
 
@@ -414,16 +428,20 @@ async def add_latest_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     drink = profile["drink_history"][-1]
     size = drink["size"]
     time_adj = time_adjustment(size)
+    current_time = get_timezone()
 
     latest_drink = {
         "size": drink["size"],
         "percentage": drink["percentage"],
         "servings": drink["servings"],
-        "timestamp": get_timezone() - time_adj
+        "timestamp": current_time - time_adj
     }
 
     profile["drink_history"].append(latest_drink)
     profile["drink_count"] += latest_drink["servings"]
+
+    if profile["BAC"] == 0 and profile["start_time"] != 0:
+        profile["second_start"] = current_time - time_adj
 
     save_profiles()
 

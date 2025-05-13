@@ -5,6 +5,8 @@ from telegram.ext import ContextTypes
 from bot.save_and_load import save_profiles, user_profiles
 from bot.utils import get_timezone
 
+isSecond_start = False
+
 # Calculate the number of servings in a drink
 def calculate_alcohol(vol, perc):
     pure_alcohol = vol * (perc / 100) * 789
@@ -15,7 +17,12 @@ def calculate_alcohol(vol, perc):
 async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id, noSaving=False):
     profile = user_profiles[user_id]
 
-    profile["elapsed_time"] = get_timezone() - profile["start_time"]
+    if profile["second_start"] != 0:
+        start_time = profile["second_start"]
+    else:
+        start_time = profile["start_time"]
+
+    profile["elapsed_time"] = get_timezone() - start_time
     drinking_time = profile["elapsed_time"] / 3600
     
     weight = profile["weight"]
@@ -41,9 +48,23 @@ async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user
     bac = absorbed_grams / (weight*1000 * r) * 100
 
     if gender == "mies":
-        grams = 0.1125 if weight < 70 else 0.10
+        min_w, max_w = 60, 100
+        min_g, max_g = 0.12, 0.1
+        if weight <= min_w:
+            grams = min_g
+        elif weight >= max_w:
+            grams = max_g
+        else:
+            grams = min_g + (max_g - min_g) * ((weight - min_w) / (max_w - min_w))
     else:
-        grams = 0.14 if weight < 60 else 0.125
+        min_w, max_w = 50, 90
+        min_g, max_g = 0.14, 0.115
+        if weight <= min_w:
+            grams = min_g
+        elif weight >= max_w:
+            grams = max_g
+        else:
+            grams = min_g + (max_g - min_g) * ((weight - min_w) / (max_w - min_w))
     
     grams_per_kg = grams * weight
     bac_elim = grams_per_kg / (weight*1000 * r) * 100
@@ -74,7 +95,9 @@ async def calculate_absorption(update: Update, context: ContextTypes.DEFAULT_TYP
         if drink_elapsed_time < 0:
             print(f"Drink elapsed time is negative, skipping {profile['name']}'s drink.")
             continue
-        
+        elif profile["second_start"] != 0 and drink["timestamp"] < profile["second_start"]:
+            continue
+
         k = 3.1 * (64/weight)**0.25 * gender_factor
 
         c = drink["percentage"]
@@ -106,7 +129,10 @@ def recalculate_highest_bac(user_id, drink):
     profile = user_profiles[user_id]
 
     current_time = get_timezone()
-    profile["elapsed_time"] = get_timezone() - profile["start_time"]
+    if profile["second_start"] != 0:
+        profile["elapsed_time"] = get_timezone() - profile["second_start"]
+    else:
+        profile["elapsed_time"] = get_timezone() - profile["start_time"]
 
     weight = profile["weight"]
     gender = profile["gender"]
