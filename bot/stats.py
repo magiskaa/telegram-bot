@@ -51,7 +51,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📊{name_conjugation(profile['name'], 'n')} statsit\n"
         f"==========================\n"
         f"Olet nauttinut {drinks:.2f} annosta.\n"
-        f"Aloitit klo {datetime.fromtimestamp(profile['start_time'], tz=ZoneInfo("Europe/Helsinki")).strftime('%H:%M:%S')}.\n"
+        f"Aloitit klo {datetime.fromtimestamp(profile['start_time'], tz=ZoneInfo('Europe/Helsinki')).strftime('%H:%M:%S')}.\n"
         f"Olet juonut {drinking_time_h}h {drinking_time_m}min.\n"
         f"{sober_text}\n\n"
         f"Arvioitu BAC nyt: *{bac:.3f}‰*.\n"

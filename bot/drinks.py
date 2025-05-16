@@ -428,7 +428,7 @@ async def delete_drink_button_handler(update: Update, context: ContextTypes.DEFA
             await calculate_bac(update, context, user_id)
             await query.edit_message_text(
                 f"⏏️Poistettu juoma:\n{index+1}. *{drink['size']}l* *{drink['percentage']}%* ({servings} annosta).\n"
-                f"Juoman lopetus: {datetime.fromtimestamp(drink['timestamp'], tz=ZoneInfo("Europe/Helsinki")).strftime('%H:%M:%S')}\n",
+                f"Juoman lopetus: {datetime.fromtimestamp(drink['timestamp'], tz=ZoneInfo('Europe/Helsinki')).strftime('%H:%M:%S')}\n",
                 parse_mode="Markdown"
             )
             return ConversationHandler.END
@@ -453,7 +453,7 @@ async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE, isDe
         time_adj = time_adjustment(drink["size"])
         history_text += (
             f"{i}. *{drink['size']}l*, *{drink['percentage']}%* ({drink['servings']} annosta)\n"
-            f"Juoman lopetus: {datetime.fromtimestamp(drink['timestamp'] + time_adj, tz=ZoneInfo("Europe/Helsinki")).strftime('%H:%M:%S')}\n\n"
+            f"Juoman lopetus: {datetime.fromtimestamp(drink['timestamp'] + time_adj, tz=ZoneInfo('Europe/Helsinki')).strftime('%H:%M:%S')}\n\n"
         )
 
     if isDelete:
