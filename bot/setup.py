@@ -8,6 +8,9 @@ FAVORITE = 1
 
 # Setup command
 async def setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.message.from_user.id) in user_profiles:
+        await update.message.reply_text("Profiilisi on jo luotu. Voit muokata sitä komennolla /profile.")
+        return ConversationHandler.END
     await update.message.reply_text("Mikä on sukupuolesi? (mies/nainen)")
     return GENDER
 
