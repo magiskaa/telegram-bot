@@ -238,8 +238,56 @@ async def forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if result:
         return ConversationHandler.END
 
-    await update.message.reply_text("Kirjoita unohtuneen juoman koko ja prosentit: (esim. 0.33 4.2 tai 0,5 8,0)")
-    return FORGOTTEN_DRINK
+    user_id = str(update.message.from_user.id)
+    profile = user_profiles[user_id]
+    favorites = profile["favorites"]
+
+    buttons = [InlineKeyboardButton(drink[0], callback_data=f"forgotten_{i}") for i, drink in enumerate(COMMON_DRINKS) if drink[1] is not None]
+    forgotten_buttons = [InlineKeyboardButton(f"😍{favorite['name']} {favorite['size']}l, {favorite['percentage']}%", callback_data=f"forgotten_{i+100}") for i, favorite in enumerate(favorites) if favorite["name"] != "ei määritetty"]
+    buttons.extend(forgotten_buttons)
+    buttons.append(InlineKeyboardButton("🤷Muu", callback_data=f"forgotten_{len(buttons)}"))
+    buttons.append(InlineKeyboardButton("❌Peruuta", callback_data="forgotten_cancel"))
+    keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        "Valitse unohtunut juoma:",
+        reply_markup=reply_markup
+    )
+
+async def forgotten_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data == "forgotten_cancel":
+        await query.edit_message_text("Peruutettu.")
+        return ConversationHandler.END
+    if data.startswith("forgotten_"):
+        index = int(data.split("_")[1])
+        if index < 0:
+            await query.edit_message_text("Virheellinen valinta.")
+            return ConversationHandler.END
+        elif index == len(COMMON_DRINKS) - 1:
+            await query.edit_message_text("Kirjoita unohtuneen juoman koko ja prosentit: (esim. 0.33 4.2 tai 0,5 8,0)")
+            return FORGOTTEN_DRINK
+        elif index >= 100:
+            index -= 100
+            user_id = str(query.from_user.id)
+            profile = user_profiles[user_id]
+            context.user_data["forgotten_size"] = profile["favorites"][index]["size"]
+            context.user_data["forgotten_percentage"] = profile["favorites"][index]["percentage"]
+            await query.edit_message_text("Mihin aikaan aloitit juoman? (kirjoita aika muodossa HH:MM tai HH.MM)")
+            return FORGOTTEN_TIME
+        else:
+            name, size, percentage = COMMON_DRINKS[index]
+            context.user_data["forgotten_size"] = size
+            context.user_data["forgotten_percentage"] = percentage
+            await query.edit_message_text("Mihin aikaan aloitit juoman? (kirjoita aika muodossa HH:MM tai HH.MM)")
+            return FORGOTTEN_TIME
+    else:
+        await query.edit_message_text("Virheellinen valinta.")
+        return ConversationHandler.END
 
 async def get_forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -329,7 +377,7 @@ async def delete_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     drinks = await drink_history(update, context, isDelete=True)
 
-    buttons = [InlineKeyboardButton(f"{i+1}. " + str(drink["size"]) + "l " + str(drink["percentage"]) + "%", callback_data=f"delete_{i}") for i, drink in enumerate(profile["drink_history"])]
+    buttons = [InlineKeyboardButton(f"{i+1}. {str(drink["size"])}l, {str(drink["percentage"])}%", callback_data=f"delete_{i}") for i, drink in enumerate(profile["drink_history"])]
     buttons.append(InlineKeyboardButton("❌Peruuta", callback_data="delete_cancel"))
     keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 
@@ -404,7 +452,7 @@ async def drink_history(update: Update, context: ContextTypes.DEFAULT_TYPE, isDe
     for i, drink in enumerate(profile["drink_history"], 1):
         time_adj = time_adjustment(drink["size"])
         history_text += (
-            f"{i}. *{drink['size']}l* *{drink['percentage']}%* ({drink['servings']} annosta)\n"
+            f"{i}. *{drink['size']}l*, *{drink['percentage']}%* ({drink['servings']} annosta)\n"
             f"Juoman lopetus: {datetime.fromtimestamp(drink['timestamp'] + time_adj, tz=ZoneInfo("Europe/Helsinki")).strftime('%H:%M:%S')}\n\n"
         )
 

@@ -12,7 +12,7 @@ from bot.admin import (
     ANNOUNCEMENT, ANSWER, GET_STATS, GET_DRINKS
 )
 from bot.drinks import (
-    drink, drink_button_handler, get_drink, favorite, favorite_button_handler, forgotten_drink, get_forgotten_drink, 
+    drink, drink_button_handler, get_drink, favorite, favorite_button_handler, forgotten_drink, forgotten_button_handler, get_forgotten_drink, 
     get_forgotten_time, delete_drink, delete_drink_button_handler, drink_history, add_latest_drink,
     DRINK, FORGOTTEN_TIME, FORGOTTEN_DRINK
 )
@@ -160,7 +160,7 @@ def main():
 
         # Forgotten drink conversation handler
         forgotten_conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("forgotten", forgotten_drink)],
+            entry_points=[CommandHandler("forgotten", forgotten_drink), CallbackQueryHandler(forgotten_button_handler, pattern="^forgotten_")],
             states={
                 FORGOTTEN_DRINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_drink)],
                 FORGOTTEN_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_forgotten_time)]
