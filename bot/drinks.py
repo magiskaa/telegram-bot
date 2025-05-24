@@ -18,8 +18,7 @@ COMMON_DRINKS = [
     ("🍐Siideri 0.33l, 4.7%", 0.33, 4.7),
     ("🫧Seltzer 0.33l, 4.5%", 0.33, 4.5),
     ("🍷Viini 0.12l, 13%", 0.12, 13),
-    ("🥃Viina 0.04l, 40%", 0.04, 40),
-    ("🤷Muu", None, None)
+    ("🥃Viina 0.04l, 40%", 0.04, 40)
 ]
 
 # Drink command
@@ -27,8 +26,15 @@ async def drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = await validate_profile(update, context)
     if result:
         return ConversationHandler.END
+    
+    user_id = str(update.message.from_user.id)
+    profile = user_profiles[user_id]
+    favorites = profile["favorites"]
 
     buttons = [InlineKeyboardButton(drink[0], callback_data=f"drink_{i}") for i, drink in enumerate(COMMON_DRINKS)]
+    favorite_buttons = [InlineKeyboardButton(f"😍{favorite['name']} {favorite['size']}l, {favorite['percentage']}%", callback_data=f"drink_{i+100}") for i, favorite in enumerate(favorites) if favorite["name"] != "ei määritetty"]
+    buttons.extend(favorite_buttons)
+    buttons.append(InlineKeyboardButton("🤷Muu", callback_data=f"drink_{len(COMMON_DRINKS)}"))
     buttons.append(InlineKeyboardButton("❌Peruuta", callback_data="drink_cancel"))
     keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 
@@ -51,7 +57,7 @@ async def drink_button_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         if index < 0:
             await query.edit_message_text("Virheellinen valinta.")
             return ConversationHandler.END
-        elif index >= len(COMMON_DRINKS) - 1:
+        elif index == len(COMMON_DRINKS):
             await query.edit_message_text("Kirjoita juoman koko ja prosentit: (esim. 0.33 4.2 tai 0,5 8,0)")
             return DRINK
         else:
@@ -69,11 +75,17 @@ async def select_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Virheellinen valinta.")
         return
     
-    index = int(data.split("_")[1])
-    name, size, percentage = COMMON_DRINKS[index]
-
     user_id = str(query.from_user.id)
     profile = user_profiles[user_id]
+    
+    index = int(data.split("_")[1])
+    if index >= 100:
+        index -= 100
+        size = profile["favorites"][index]["size"]
+        percentage = profile["favorites"][index]["percentage"]
+    else:
+        name, size, percentage = COMMON_DRINKS[index]
+    
     servings = calculate_alcohol(size, percentage)
     profile["drink_count"] += servings
 
@@ -242,10 +254,10 @@ async def forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     profile = user_profiles[user_id]
     favorites = profile["favorites"]
 
-    buttons = [InlineKeyboardButton(drink[0], callback_data=f"forgotten_{i}") for i, drink in enumerate(COMMON_DRINKS) if drink[1] is not None]
-    forgotten_buttons = [InlineKeyboardButton(f"😍{favorite['name']} {favorite['size']}l, {favorite['percentage']}%", callback_data=f"forgotten_{i+100}") for i, favorite in enumerate(favorites) if favorite["name"] != "ei määritetty"]
-    buttons.extend(forgotten_buttons)
-    buttons.append(InlineKeyboardButton("🤷Muu", callback_data=f"forgotten_{len(buttons)}"))
+    buttons = [InlineKeyboardButton(drink[0], callback_data=f"forgotten_{i}") for i, drink in enumerate(COMMON_DRINKS)]
+    favorite_buttons = [InlineKeyboardButton(f"😍{favorite['name']} {favorite['size']}l, {favorite['percentage']}%", callback_data=f"forgotten_{i+100}") for i, favorite in enumerate(favorites) if favorite["name"] != "ei määritetty"]
+    buttons.extend(favorite_buttons)
+    buttons.append(InlineKeyboardButton("🤷Muu", callback_data=f"forgotten_{len(COMMON_DRINKS)}"))
     buttons.append(InlineKeyboardButton("❌Peruuta", callback_data="forgotten_cancel"))
     keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 
@@ -268,7 +280,7 @@ async def forgotten_button_handler(update: Update, context: ContextTypes.DEFAULT
         if index < 0:
             await query.edit_message_text("Virheellinen valinta.")
             return ConversationHandler.END
-        elif index == len(COMMON_DRINKS) - 1:
+        elif index == len(COMMON_DRINKS):
             await query.edit_message_text("Kirjoita unohtuneen juoman koko ja prosentit: (esim. 0.33 4.2 tai 0,5 8,0)")
             return FORGOTTEN_DRINK
         elif index >= 100:
