@@ -1,11 +1,8 @@
-import math
 import numpy as np
 from telegram import Update
 from telegram.ext import ContextTypes
 from bot.save_and_load import save_profiles, user_profiles
-from bot.utils import get_timezone
-
-isSecond_start = False
+from bot.utils import get_timezone, get_TBW, get_elim_rate, get_BAC, get_elim_time, get_absorption
 
 # Calculate the number of servings in a drink
 def calculate_alcohol(vol, perc):
@@ -26,55 +23,26 @@ async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user
     drinking_time = profile["elapsed_time"] / 3600
     
     weight = profile["weight"]
-    gender = profile["gender"]
-    age = profile["age"]
-    height = profile["height"]
 
-    if gender == "mies":
-        TBW = 2.447 - 0.09516 * age + 0.1074 * height + 0.3362 * weight
-    else:
-        TBW = -2.097 + 0.1069 * height + 0.2466 * weight
-
-    r = TBW / weight
+    r = get_TBW(user_id)
 
     absorbed_grams = await calculate_absorption(update, context, user_id)
     
-    if drinking_time < 0.6:
-        elimination_factor = drinking_time / 0.6
-        elimination_time = drinking_time * elimination_factor
-    else:
-        elimination_time = drinking_time
+    elimination_time = get_elim_time(drinking_time)
 
-    bac = absorbed_grams / (weight*1000 * r) * 100
+    bac = get_BAC(user_id, absorbed_grams, r)
 
-    if gender == "mies":
-        min_w, max_w = 60, 100
-        min_g, max_g = 0.12, 0.1
-        if weight <= min_w:
-            grams = min_g
-        elif weight >= max_w:
-            grams = max_g
-        else:
-            grams = min_g + (max_g - min_g) * ((weight - min_w) / (max_w - min_w))
-    else:
-        min_w, max_w = 50, 90
-        min_g, max_g = 0.14, 0.115
-        if weight <= min_w:
-            grams = min_g
-        elif weight >= max_w:
-            grams = max_g
-        else:
-            grams = min_g + (max_g - min_g) * ((weight - min_w) / (max_w - min_w))
+    grams = get_elim_rate(user_id)
     
     grams_per_kg = grams * weight
-    bac_elim = grams_per_kg / (weight*1000 * r) * 100
+    bac_elim = get_BAC(user_id, grams_per_kg, r)
 
     bac -= bac_elim * elimination_time
     bac = max(0, bac)
 
     if noSaving:
         profile["BAC"] = bac
-        context.user_data["max_BAC"] = profile["drink_count"] * 12 / (weight*1000 * r) * 100
+        context.user_data["max_BAC"] = profile["drink_count"] * get_BAC(user_id, 12, r)
         return bac_elim
     else:
         profile["BAC"] = bac * 10
@@ -84,8 +52,6 @@ async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user
 async def calculate_absorption(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
     profile = user_profiles[user_id]
     current_time = get_timezone()
-    weight = profile["weight"]
-    gender_factor = 1.0 if profile["gender"] == "mies" else 1.15
 
     total_absorbed = 0
 
@@ -93,33 +59,12 @@ async def calculate_absorption(update: Update, context: ContextTypes.DEFAULT_TYP
         drink_elapsed_time = (current_time - drink["timestamp"]) / 3600
 
         if drink_elapsed_time < 0:
-            print(f"Drink elapsed time is negative, skipping {profile['name']}'s drink.")
+            print(f"Drink elapsed time is negative, skipping {profile['name']}'s drink. ({drink['size']}l {drink['percentage']}%)")
             continue
         elif profile["second_start"] != 0 and drink["timestamp"] < profile["second_start"]:
             continue
 
-        k = 3.1 * (64/weight)**0.25 * gender_factor
-
-        c = drink["percentage"]
-        if c <= 4:
-            concentration_factor = 0.9
-        elif 4 < c < 20:
-            concentration_factor = 0.9 + (c - 4) * (1.2 - 0.9) / (20 - 4)
-        elif 20 <= c <= 30:
-            concentration_factor = 1.2
-        elif 30 < c <= 60:
-            concentration_factor = 1.2 - (c - 30) * (1.2 - 0.9) / (60 - 30)
-        else:
-            concentration_factor = 0.9
-
-        k *= concentration_factor
-
-        drink_grams = drink["servings"] * 12
-        absorbed_grams = drink_grams * (1 - math.e**(-k * drink_elapsed_time**1.1))
-
-        if drink_elapsed_time > 2:
-            absorbed_grams = drink_grams
-        
+        absorbed_grams = get_absorption(user_id, drink, drink_elapsed_time)
         total_absorbed += absorbed_grams
 
     return total_absorbed
@@ -130,49 +75,17 @@ def recalculate_highest_bac(user_id, drink):
 
     current_time = get_timezone()
     if profile["second_start"] != 0:
-        profile["elapsed_time"] = get_timezone() - profile["second_start"]
+        profile["elapsed_time"] = current_time - profile["second_start"]
     else:
-        profile["elapsed_time"] = get_timezone() - profile["start_time"]
+        profile["elapsed_time"] = current_time - profile["start_time"]
 
-    weight = profile["weight"]
-    gender = profile["gender"]
-    age = profile["age"]
-    height = profile["height"]
-
-    if gender == "mies":
-        TBW = 2.447 - 0.09516 * age + 0.1074 * height + 0.3362 * weight
-    else:
-        TBW = -2.097 + 0.1069 * height + 0.2466 * weight
-
-    r = TBW / weight
-
-    gender_factor = 1.0 if profile["gender"] == "mies" else 1.15
+    r = get_TBW(user_id)
 
     drink_elapsed_time = (current_time - drink["timestamp"]) / 3600
     
-    k = 3.1 * (64/weight)**0.25 * gender_factor
+    absorbed_grams = get_absorption(user_id, drink, drink_elapsed_time)    
 
-    c = drink["percentage"]
-    if c <= 4:
-        concentration_factor = 0.9
-    elif 4 < c < 20:
-        concentration_factor = 0.9 + (c - 4) * (1.2 - 0.9) / (20 - 4)
-    elif 20 <= c <= 30:
-        concentration_factor = 1.2
-    elif 30 < c <= 60:
-        concentration_factor = 1.2 - (c - 30) * (1.2 - 0.9) / (60 - 30)
-    else:
-        concentration_factor = 0.9
-
-    k *= concentration_factor
-
-    drink_grams = drink["servings"] * 12
-    absorbed_grams = drink_grams * (1 - math.e**(-k * drink_elapsed_time**1.1))
-
-    if drink_elapsed_time > 2:
-        absorbed_grams = drink_grams
-
-    drink_bac = absorbed_grams / (weight*1000 * r) * 100
+    drink_bac = get_BAC(user_id, absorbed_grams, r)
 
     profile["highest_BAC"] -= drink_bac * 10
 
@@ -180,18 +93,10 @@ def recalculate_highest_bac(user_id, drink):
 def calculate_peak_bac(user_id):
     profile = user_profiles[user_id]
     weight = profile["weight"]
-    gender = profile["gender"]
-    age = profile["age"]
-    height = profile["height"]
 
-    if gender == "mies":
-        TBW = 2.447 - 0.09516 * age + 0.1074 * height + 0.3362 * weight
-        grams = 0.1125 if weight < 70 else 0.10
-    else:
-        TBW = -2.097 + 0.1069 * height + 0.2466 * weight
-        grams = 0.14 if weight < 60 else 0.125
+    r = get_TBW(user_id)
 
-    r = TBW / weight
+    grams = get_elim_rate(user_id)
 
     drinks = profile["drink_history"]
     if not drinks:
@@ -206,45 +111,21 @@ def calculate_peak_bac(user_id):
     for t in times:
         total_absorbed = 0
         for drink in drinks:
-            drink_elapsed = (t - drink["timestamp"]) / 3600
-            if drink_elapsed < 0:
+            drink_elapsed_time = (t - drink["timestamp"]) / 3600
+            if drink_elapsed_time < 0:
                 continue
 
-            gender_factor = 1.0 if gender == "mies" else 1.15
-            k = 3.1 * (64/weight)**0.25 * gender_factor
-
-            c = drink["percentage"]
-            if c <= 4:
-                concentration_factor = 0.9
-            elif 4 < c < 20:
-                concentration_factor = 0.9 + (c - 4) * (1.2 - 0.9) / (20 - 4)
-            elif 20 <= c <= 30:
-                concentration_factor = 1.2
-            elif 30 < c <= 60:
-                concentration_factor = 1.2 - (c - 30) * (1.2 - 0.9) / (60 - 30)
-            else:
-                concentration_factor = 0.9
-            k *= concentration_factor
-
-            drink_grams = drink["servings"] * 12
-            if drink_elapsed > 2:
-                absorbed = drink_grams
-            else:
-                absorbed = drink_grams * (1 - math.e**(-k * drink_elapsed**1.1))
+            absorbed = get_absorption(user_id, drink, drink_elapsed_time)
             total_absorbed += absorbed
 
         hours_since_start = (t - start_time) / 3600
 
-        if hours_since_start < 0.6:
-            elimination_factor = hours_since_start / 0.6
-            elimination_time = hours_since_start * elimination_factor
-        else:
-            elimination_time = hours_since_start
+        elimination_time = get_elim_time(hours_since_start)
 
-        bac = total_absorbed / (weight * 1000 * r) * 100
+        bac = get_BAC(user_id, total_absorbed, r)
 
         grams_per_kg = grams * weight
-        bac_elim = grams_per_kg / (weight * 1000 * r) * 100
+        bac_elim = get_BAC(user_id, grams_per_kg, r)
 
         bac -= bac_elim * elimination_time
         bac = max(0, bac)

@@ -377,7 +377,7 @@ async def delete_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     drinks = await drink_history(update, context, isDelete=True)
 
-    buttons = [InlineKeyboardButton(f"{i+1}. {str(drink["size"])}l, {str(drink["percentage"])}%", callback_data=f"delete_{i}") for i, drink in enumerate(profile["drink_history"])]
+    buttons = [InlineKeyboardButton(f"{i+1}. {str(drink['size'])}l, {str(drink['percentage'])}%", callback_data=f"delete_{i}") for i, drink in enumerate(profile["drink_history"])]
     buttons.append(InlineKeyboardButton("❌Peruuta", callback_data="delete_cancel"))
     keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 

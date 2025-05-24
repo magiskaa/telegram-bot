@@ -112,7 +112,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Failed to send error message to admin: {e}")
         with open("data/error_log.txt", "a") as f:
-            f.write(f"{datetime.now()} - Error sending message: {e}\n")
+            f.write(f"{datetime.now()} - Error sending message: {e}. Error: {context.error}\n")
 
 
 def main():

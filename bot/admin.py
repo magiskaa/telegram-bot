@@ -1,6 +1,7 @@
 import math
 import openai
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from bot.save_and_load import save_profiles, user_profiles
@@ -169,7 +170,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
         context.user_data["max_BAC"] -= bac_elim * drinking_time
         hours_until_sober = context.user_data["max_BAC"] / bac_elim
         sober_timestamp = get_timezone() + (hours_until_sober * 3600)
-        sober_time_str = datetime.fromtimestamp(sober_timestamp).strftime("%H:%M")
+        sober_time_str = datetime.fromtimestamp(sober_timestamp, tz=ZoneInfo("Europe/Helsinki")).strftime("%H:%M")
         sober_text = f"{name} on selvinpäin noin klo {sober_time_str}."
     else:
         sober_text = f"{name} on jo selvinpäin."
@@ -182,7 +183,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
         f"📊{name_conjugation(profile['name'], 'n')} statsit\n"
         f"==========================\n"
         f"{name} on nauttinut {drinks:.2f} annosta.\n"
-        f"{name} aloitti klo {datetime.fromtimestamp(profile['start_time']).strftime('%H:%M:%S')}.\n"
+        f"{name} aloitti klo {datetime.fromtimestamp(profile['start_time'], tz=ZoneInfo('Europe/Helsinki')).strftime('%H:%M:%S')}.\n"
         f"{name} on juonut {drinking_time_h}h {drinking_time_m}min.\n"
         f"{sober_text}\n\n"
         f"Arvioitu BAC nyt: *{bac:.3f}‰*.\n"
@@ -234,7 +235,7 @@ async def show_drinks(update: Update, context: ContextTypes.DEFAULT_TYPE, profil
         time_adj = time_adjustment(drink["size"])
         history_text += (
             f"{i}. *{drink['size']}l* *{drink['percentage']}%* ({drink['servings']} annosta)\n"
-            f"Juoman lopetus: {datetime.fromtimestamp(drink['timestamp'] + time_adj).strftime('%H:%M:%S')}\n\n"
+            f"Juoman lopetus: {datetime.fromtimestamp(drink['timestamp'] + time_adj, tz=ZoneInfo('Europe/Helsinki')).strftime('%H:%M:%S')}\n\n"
         )
 
     return history_text
