@@ -1,8 +1,14 @@
+import html
+import json
+import logging
+import traceback
 import openai
+from zoneinfo import ZoneInfo
 from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from datetime import time as datetime_time
-from datetime import datetime
+from datetime import datetime, timedelta
 from config.config import BOT_TOKEN, OPENAI_API, ADMIN_ID
 from bot.save_and_load import user_profiles
 from bot.job_queue import reset_drink_stats, recap, bac_update
@@ -21,6 +27,12 @@ from bot.setup import (
     update_height, update_weight, button_handler, favorite_drink, favorite_drink_button_handler, get_favorite,
     GENDER, AGE, HEIGHT, WEIGHT, UPDATE_GENDER, UPDATE_AGE, UPDATE_HEIGHT, UPDATE_WEIGHT, FAVORITE
 )
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
 
 ASK = 1
 FIRST_ASK = True
@@ -103,16 +115,23 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # Error handler
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        await context.bot.send_message(chat_id=ADMIN_ID, text=f"Handler error: {context.error}")
-        print(f"Error message sent to admin: {context.error}")
-        with open("data/error_log.txt", "a") as f:
-            f.write(f"{datetime.now()} - Handler error: {context.error}\n")
-    except Exception as e:
-        print(f"Failed to send error message to admin: {e}")
-        with open("data/error_log.txt", "a") as f:
-            f.write(f"{datetime.now()} - Error sending message: {e}. Error: {context.error}\n")
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.error("Exception while handling an update: ", exc_info=context.error)
+
+    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+    tb_string = "".join(tb_list)
+
+    update_str = update.to_dict() if isinstance(update, Update) else str(update)
+    message = (
+        "An exception was raised while handling an update:\n"
+        f"<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}</pre>\n\n"
+        f"<pre>{html.escape(tb_string)}</pre>"
+    )
+
+    with open("data/error_log.txt", "a") as f:
+        f.write(f"{datetime.now(ZoneInfo("Europe/Helsinki"))} - Handler error: {context.error}\n")
+
+    await context.bot.send_message(chat_id=ADMIN_ID, text=message, parse_mode=ParseMode.HTML)
 
 
 def main():
