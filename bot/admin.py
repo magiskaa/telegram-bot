@@ -106,7 +106,7 @@ async def send_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Ilmoitus tallennettu. Voit lähettää sen myöhemmin.")
         return ConversationHandler.END
     else:
-        await update.message.reply_text("Virheellinen syöte. Ilmoitus peruutettu.")
+        await update.message.reply_text("⚠️Virheellinen syöte. Ilmoitus peruutettu.")
         return ConversationHandler.END
 
 async def send_saved_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):

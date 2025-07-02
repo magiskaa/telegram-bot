@@ -17,7 +17,7 @@ async def setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     gender = update.message.text.lower()
     if gender not in ["mies", "nainen"]:
-        await update.message.reply_text("Virheellinen syöte. Kirjoita joko 'mies' tai 'nainen'.")
+        await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita joko 'mies' tai 'nainen'.")
         return GENDER
     context.user_data["gender"] = gender
     await update.message.reply_text("Mikä on ikäsi?")
@@ -35,9 +35,9 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return HEIGHT
     except ValueError as e:
         if "Et saa" in str(e):
-            await update.message.reply_text(f"Virheellinen syöte. {e}")
+            await update.message.reply_text(f"⚠️Virheellinen syöte. {e}")
         else:
-            await update.message.reply_text("Virheellinen syöte. Iän pitää olla kokonaisluku.")
+            await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita ikäsi uudestaan:")
         return AGE
     
 async def get_height(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -52,9 +52,9 @@ async def get_height(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return WEIGHT
     except ValueError as e:
         if "Pituus ei" in str(e):
-            await update.message.reply_text(f"Virheellinen syöte. {e}")
+            await update.message.reply_text(f"⚠️Virheellinen syöte. {e}")
         else:
-            await update.message.reply_text("Virheellinen syöte. Pituuden pitää olla positiivinen kokonaisluku.")
+            await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita pituutesi uudestaan:")
         return HEIGHT
 
 async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -112,9 +112,9 @@ async def get_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
     except ValueError as e:
         if "Paino ei" in str(e):
-            await update.message.reply_text(f"Virheellinen syöte. {e}")
+            await update.message.reply_text(f"⚠️Virheellinen syöte. {e}")
         else:
-            await update.message.reply_text("Virheellinen syöte. Painon pitää olla positiivinen kokonaisluku.")
+            await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita painosi uudestaan:")
         return WEIGHT
 
 # Profile command
@@ -151,7 +151,7 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def update_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     gender = update.message.text.lower()
     if gender not in ["mies", "nainen"]:
-        await update.message.reply_text("Virheellinen syöte. Kirjoita joko 'mies' tai 'nainen'.")
+        await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita joko 'mies' tai 'nainen'.")
         return UPDATE_GENDER
     user_profiles[str(update.message.from_user.id)]["gender"] = gender
     save_profiles()
@@ -172,9 +172,9 @@ async def update_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
     except ValueError as e:
         if "Et saa" in str(e):
-            await update.message.reply_text(f"Virheellinen syöte. {e}")
+            await update.message.reply_text(f"⚠️Virheellinen syöte. {e}")
         else:
-            await update.message.reply_text("Virheellinen syöte. Iän pitää olla positiivinen kokonaisluku.")
+            await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita ikäsi uudestaan:")
         return UPDATE_AGE
 
 async def update_height(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -191,9 +191,9 @@ async def update_height(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
     except ValueError as e:
         if "Pituus ei" in str(e):
-            await update.message.reply_text(f"Virheellinen syöte. {e}")
+            await update.message.reply_text(f"⚠️Virheellinen syöte. {e}")
         else:
-            await update.message.reply_text("Virheellinen syöte. Pituuden pitää olla positiivinen kokonaisluku.")
+            await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita pituutesi uudestaan:")
         return UPDATE_HEIGHT
 
 async def update_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -210,9 +210,9 @@ async def update_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
     except ValueError as e:
         if "Paino ei" in str(e):
-            await update.message.reply_text(f"Virheellinen syöte. {e}")
+            await update.message.reply_text(f"⚠️Virheellinen syöte. {e}")
         else:
-            await update.message.reply_text("Virheellinen syöte. Painon pitää olla positiivinen kokonaisluku.")
+            await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita painosi uudestaan:")
         return UPDATE_WEIGHT
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -224,13 +224,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Kirjoita uusi sukupuolesi (mies/nainen):")
         return UPDATE_GENDER
     elif data == "edit_age":
-        await query.message.reply_text("Kirjoita uusi ikä:")
+        await query.message.reply_text("Kirjoita uusi ikäsi:")
         return UPDATE_AGE
     elif data == "edit_height":
-        await query.message.reply_text("Kirjoita uusi pituus senttimetreinä:")
+        await query.message.reply_text("Kirjoita uusi pituustesi senttimetreinä:")
         return UPDATE_HEIGHT
     elif data == "edit_weight":
-        await query.message.reply_text("Kirjoita uusi paino kiloina:")
+        await query.message.reply_text("Kirjoita uusi painosi kiloina:")
         return UPDATE_WEIGHT
     elif data == "edit_cancel":
         await query.edit_message_text("Peruutettu.")
@@ -280,7 +280,7 @@ async def favorite_drink_button_handler(update: Update, context: ContextTypes.DE
     elif data.startswith("modify_"):
         drink_index = int(data.split("_")[1]) - 1
         context.user_data["favorite_drink_index"] = drink_index
-        await query.edit_message_text("Kirjoita uusi lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari tai 0,5 8,0 karhu):")
+        await query.edit_message_text("Kirjoita uusi lempijuomasi koko, prosentit ja nimi: (esim. 0.33 4.2 kupari tai 0,5 8,0 karhu)")
         return FAVORITE
     else:
         await query.edit_message_text("Virheellinen valinta.")
@@ -313,7 +313,7 @@ async def get_favorite(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
     except ValueError as e:
         if "Koko ei" in str(e) or "Prosentti ei" in str(e):
-            await update.message.reply_text(f"Virheellinen syöte. {e}")
+            await update.message.reply_text(f"⚠️Virheellinen syöte. {e}")
         else:
-            await update.message.reply_text("Virheellinen syöte. Kirjoita lempijuomasi koko, prosentit ja nimi (esim. 0.33 4.2 kupari tai 0,5 8,0 karhu):")
+            await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita lempijuomasi koko, prosentit ja nimi uudestaan:")
         return FAVORITE

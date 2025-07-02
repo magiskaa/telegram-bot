@@ -8,7 +8,7 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from datetime import time as datetime_time
-from datetime import datetime, timedelta
+from datetime import datetime
 from config.config import BOT_TOKEN, OPENAI_API, ADMIN_ID
 from bot.save_and_load import user_profiles
 from bot.job_queue import reset_drink_stats, recap, bac_update
