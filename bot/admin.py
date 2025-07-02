@@ -257,7 +257,7 @@ async def group_pb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "=================================\n"
     )
     
-    sorted_group = sorted(group, key=lambda x: x["BAC"], reverse=True)
+    sorted_group = sorted(group, key=lambda x: x["PB_BAC"], reverse=True)
     for i, profile in enumerate(sorted_group):
         message += f"{i+1}. {profile['name']} *{profile['PB_BAC']:.3f}‰* ({profile['PB_dc']:.2f} annosta) {profile['PB_day']}\n"
 
