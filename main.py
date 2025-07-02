@@ -14,7 +14,7 @@ from bot.save_and_load import user_profiles
 from bot.job_queue import reset_drink_stats, recap, bac_update
 from bot.stats import stats, reset, personal_best, group_stats, top_3
 from bot.admin import (
-    admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement, admin_stats, get_stats, drinks, get_drinks,
+    admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement, admin_stats, get_stats, admin_drinks, get_drinks, group_pb,
     ANNOUNCEMENT, ANSWER, GET_STATS, GET_DRINKS
 )
 from bot.drinks import (
@@ -129,7 +129,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     with open("data/error_log.txt", "a") as f:
-        f.write(f"{datetime.now(ZoneInfo("Europe/Helsinki"))} - Handler error: {context.error}\n")
+        f.write(f"{datetime.now(ZoneInfo('Europe/Helsinki'))} - Handler error: {context.error}\n")
 
     await context.bot.send_message(chat_id=ADMIN_ID, text=message, parse_mode=ParseMode.HTML)
 
@@ -234,7 +234,7 @@ def main():
         app.add_handler(stats_conv_handler)
 
         drinks_conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("get_drinks", drinks)],
+            entry_points=[CommandHandler("get_drinks", admin_drinks)],
             states={
                 GET_DRINKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_drinks)]
             },
@@ -245,6 +245,7 @@ def main():
         app.add_handler(CommandHandler("group_id", group_id))
         app.add_handler(CommandHandler("reset_top3", reset_top_3))
         app.add_handler(CommandHandler("saved_announcement", send_saved_announcement))
+        app.add_handler(CommandHandler("group_pb", group_pb))
         app.add_handler(CommandHandler("admin", admin))
 
         # Error handler
@@ -254,7 +255,7 @@ def main():
         job_queue = app.job_queue
         job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
         job_queue.run_daily(reset_drink_stats, datetime_time(hour=9, minute=0, second=2)) # This is 12:00.02
-        job_queue.run_repeating(bac_update, interval=10, first=0)
+        job_queue.run_repeating(bac_update, interval=30, first=0)
 
         app.run_polling()
     except Exception as e:

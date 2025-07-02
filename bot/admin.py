@@ -28,7 +28,8 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/announcement\n\n"
         "/saved_announcement\n\n"
         "/get_stats\n\n"
-        "/get_drinks"
+        "/get_drinks\n\n"
+        "/group_pb"
     )
 
 async def group_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -195,7 +196,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
 
     return stats_text
 
-async def drinks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_drinks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = await validate_admin(update, context)
     if result:
         return ConversationHandler.END
@@ -240,3 +241,24 @@ async def show_drinks(update: Update, context: ContextTypes.DEFAULT_TYPE, profil
 
     return history_text
 
+async def group_pb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await validate_admin(update, context)
+    if result:
+        return ConversationHandler.END
+
+    group = []
+    for user in user_profiles:
+        if user == "top_3":
+            continue
+        group.append(user_profiles[user])
+
+    message = (
+        f"😎Ryhmän henkilökohtaiset ennätykset\n"
+        "=================================\n"
+    )
+    
+    sorted_group = sorted(group, key=lambda x: x["BAC"], reverse=True)
+    for i, profile in enumerate(sorted_group):
+        message += f"{i+1}. {profile['name']} *{profile['PB_BAC']:.3f}‰* ({profile['PB_dc']:.2f} annosta) {profile['PB_day']}\n"
+
+    await context.bot.send_message(chat_id=ADMIN_ID, text=message, parse_mode="Markdown")
