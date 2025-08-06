@@ -14,11 +14,7 @@ from bot.save_and_load import user_profiles
 from bot.job_queue import reset_drink_stats, recap, bac_update
 from bot.stats import stats, reset, personal_best, group_stats, top_3
 from bot.admin import (
-<<<<<<< HEAD
-    admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement, admin_stats, get_stats, admin_drinks, get_drinks,
-=======
     admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement, admin_stats, get_stats, admin_drinks, get_drinks, group_pb,
->>>>>>> 9d4abdb6f33c652091ae4fb1309f0761e7b899b3
     ANNOUNCEMENT, ANSWER, GET_STATS, GET_DRINKS
 )
 from bot.drinks import (
