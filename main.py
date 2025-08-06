@@ -8,13 +8,17 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from datetime import time as datetime_time
-from datetime import datetime, timedelta
+from datetime import datetime
 from config.config import BOT_TOKEN, OPENAI_API, ADMIN_ID
 from bot.save_and_load import user_profiles
 from bot.job_queue import reset_drink_stats, recap, bac_update
 from bot.stats import stats, reset, personal_best, group_stats, top_3
 from bot.admin import (
+<<<<<<< HEAD
     admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement, admin_stats, get_stats, admin_drinks, get_drinks,
+=======
+    admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement, admin_stats, get_stats, admin_drinks, get_drinks, group_pb,
+>>>>>>> 9d4abdb6f33c652091ae4fb1309f0761e7b899b3
     ANNOUNCEMENT, ANSWER, GET_STATS, GET_DRINKS
 )
 from bot.drinks import (
@@ -245,6 +249,7 @@ def main():
         app.add_handler(CommandHandler("group_id", group_id))
         app.add_handler(CommandHandler("reset_top3", reset_top_3))
         app.add_handler(CommandHandler("saved_announcement", send_saved_announcement))
+        app.add_handler(CommandHandler("group_pb", group_pb))
         app.add_handler(CommandHandler("admin", admin))
 
         # Error handler
@@ -254,7 +259,7 @@ def main():
         job_queue = app.job_queue
         job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
         job_queue.run_daily(reset_drink_stats, datetime_time(hour=9, minute=0, second=2)) # This is 12:00.02
-        job_queue.run_repeating(bac_update, interval=10, first=0)
+        job_queue.run_repeating(bac_update, interval=30, first=0)
 
         app.run_polling()
     except Exception as e:

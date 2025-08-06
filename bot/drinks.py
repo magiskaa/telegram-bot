@@ -127,6 +127,10 @@ async def get_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         profile = user_profiles[user_id]
 
         servings = calculate_alcohol(size, percentage)
+
+        if servings > 4:
+            raise ValueError("Tosson aika paljon viinaa. Ettet kai vaan ole syöttänyt juoman tietoja väärin?")
+
         profile["drink_count"] += servings
 
         current_time = get_timezone()
@@ -153,9 +157,11 @@ async def get_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
     except ValueError as e:
         if "Koko ei" in str(e) or "Prosentit ei" in str(e):
-            await update.message.reply_text(f"Virheellinen syöte. {e}")
+            await update.message.reply_text(f"⚠️Virheellinen syöte. {e} Kirjoita juoman koko ja prosentit uudestaan:")
+        elif "Tosson aika" in str(e):
+            await update.message.reply_text(f"⚠️{e} Kirjoita juoman koko ja prosentit uudestaan:")
         else:
-            await update.message.reply_text("Virheellinen syöte. Kirjoita juoman koko ja prosentit: (esim. 0.33 4.2 tai 0,5 8,0)")
+            await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita juoman koko ja prosentit uudestaan:")
         return DRINK
 
 # Favorite command
@@ -317,13 +323,18 @@ async def get_forgotten_drink(update: Update, context: ContextTypes.DEFAULT_TYPE
         context.user_data["forgotten_size"] = size
         context.user_data["forgotten_percentage"] = percentage
 
+        if calculate_alcohol(size, percentage) > 4:
+            raise ValueError("Tosson aika paljon viinaa. Ettet kai vaan ole syöttänyt juoman tietoja väärin?")
+
         await update.message.reply_text("Mihin aikaan aloitit juoman? (kirjoita aika muodossa HH:MM tai HH.MM)")
         return FORGOTTEN_TIME
     except ValueError as e:
         if "Koko ei" in str(e) or "Prosentti ei" in str(e):
-            await update.message.reply_text(f"Virheellinen syöte. {e}")
+            await update.message.reply_text(f"⚠️Virheellinen syöte. {e} Kirjoita unohtuneen juoman koko ja prosentit uudestaan:")
+        elif "Tosson aika" in str(e):
+            await update.message.reply_text(f"⚠️{e} Kirjoita unohtuneen juoman koko ja prosentit uudestaan:")
         else:
-            await update.message.reply_text("Virheellinen syöte. Kirjoita unohtuneen juoman koko ja prosentit: (esim. 0.33 4.2 tai 0,5 8,0)")
+            await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita unohtuneen juoman koko ja prosentit uudestaan:")
         return FORGOTTEN_DRINK
 
 async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE):

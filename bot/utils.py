@@ -111,7 +111,7 @@ def get_elim_rate(user_id):
             grams = min_g + (max_g - min_g) * ((weight - min_w) / (max_w - min_w))
     else:
         min_w, max_w = 50, 90
-        min_g, max_g = 0.14, 0.115
+        min_g, max_g = 0.15, 0.125
         if weight <= min_w:
             grams = min_g
         elif weight >= max_w:
@@ -155,7 +155,7 @@ def get_absorption(user_id, drink, drink_elapsed_time):
     weight = profile["weight"]
     gender = profile["gender"]
 
-    gender_factor = 1.0 if gender == "mies" else 1.15
+    gender_factor = 1.0 if gender == "mies" else 1.1
 
     k = 3.1 * (64/weight)**0.25 * gender_factor
 
