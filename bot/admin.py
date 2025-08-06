@@ -146,7 +146,7 @@ async def get_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return GET_STATS
     
     stats = await show_stats(update, context, profile, id)
-    await context.bot.send_message(chat_id=ADMIN_ID, text=stats)
+    await context.bot.send_message(chat_id=ADMIN_ID, text=stats, parse_mode="Markdown")
     return ConversationHandler.END
 
 async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile, user_id):
@@ -164,7 +164,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
     drinks = profile["drink_count"]
 
     if bac*10 > profile["highest_BAC"]:
-        profile["highest_BAC"] = bac
+        profile["highest_BAC"] = bac*10
     
     if bac > 0:
         context.user_data["max_BAC"] -= bac_elim * drinking_time
@@ -186,7 +186,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
         f"{name} aloitti klo {datetime.fromtimestamp(profile['start_time'], tz=ZoneInfo('Europe/Helsinki')).strftime('%H:%M:%S')}.\n"
         f"{name} on juonut {drinking_time_h}h {drinking_time_m}min.\n"
         f"{sober_text}\n\n"
-        f"Arvioitu BAC nyt: *{bac:.3f}‰*.\n"
+        f"Arvioitu BAC nyt: *{bac*10:.3f}‰*.\n"
         f"Illan korkein BAC: *{profile['highest_BAC']:.3f}‰*.\n"
         f"Tuleva korkein BAC: *{peak_text}*"
     )
@@ -195,7 +195,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
 
     return stats_text
 
-async def drinks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_drinks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = await validate_admin(update, context)
     if result:
         return ConversationHandler.END
