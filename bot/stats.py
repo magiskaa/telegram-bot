@@ -49,7 +49,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     drinking_time_m = int(drinking_time % 1 * 60)
     stats_text = (
         f"📊{name_conjugation(profile['name'], 'n')} statsit\n"
-        f"==========================\n"
+        f"================================\n"
         f"Olet nauttinut {drinks:.2f} annosta.\n"
         f"Aloitit klo {datetime.fromtimestamp(profile['start_time'], tz=ZoneInfo('Europe/Helsinki')).strftime('%H:%M:%S')}.\n"
         f"Olet juonut {drinking_time_h}h {drinking_time_m}min.\n"
@@ -78,11 +78,14 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     profile["elapsed_time"] = 0
     profile["BAC"] = 0
     profile["highest_BAC"] = 0
+    profile["BAC_1_0"] = 0
+    profile["BAC_1_4"] = 0
     profile["BAC_1_7"] = 0
     profile["BAC_2_0"] = 0
     profile["BAC_2_3"] = 0
-    profile["BAC_2_7"] = 0
+    profile["BAC_2_6"] = 0
     profile["drink_history"] = []
+    profile["history"] = []
 
     save_profiles()
 
@@ -103,11 +106,46 @@ async def personal_best(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         pb_text = (
             f"😎{name_conjugation(profile['name'], 'n')} henkilökohtainen ennätys\n"
-            f"===================================\n"
+            f"================================\n"
             f"Ennätyksesi on *{profile['PB_BAC']:.3f}‰*, jonka saavutit *{profile['PB_day']}*.\n"
             f"Nautit tuolloin *{profile['PB_dc']:.2f}* annosta.\n"
         )
         await update.message.reply_text(pb_text, parse_mode="Markdown")
+
+# History command
+async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await validate_profile(update, context)
+    if result:
+        return ConversationHandler.END
+    
+    user_id = str(update.message.from_user.id)
+    profile = user_profiles[user_id]
+    history = profile["history"]
+
+    history_text = ""
+
+    if len(history) == 0:
+        await update.message.reply_text("Ei kännihistoriaa.")
+        return
+    else:
+        history_text = (
+            f"🥴{name_conjugation(profile['name'], 'n')} kännihistoria\n"
+            f"================================\n"
+        )
+        for entry in history:
+            bac = entry["BAC"]
+            drinks = entry["drinks"]
+            date = entry["day"]
+            start = entry["start"]
+
+            history_text += (
+                f"{date}\n"
+                f"Korkein BAC: *{bac:.3f}‰*\n"
+                f"Joit *{drinks:.2f}* annosta\n"
+                f"Aloitit klo *{start}*\n"
+            )
+
+        await update.message.reply_text(history_text, parse_mode="Markdown")
 
 # Group stats command
 async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -133,7 +171,7 @@ async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             animation=random.choice(TOP_3_GIFS),
             caption=
             "📊Ryhmän tilastot\n"
-            "============================\n"
+            "================================\n"
             f"Juojia tänään: *{len(drinkers)}*.\n"
             f"Alkoholia nautittu: *{sum([profile['drink_count'] for profile in drinkers]):.2f}* annosta.\n"
             "\nLeaderboard tällä hetkellä:\n"
@@ -154,7 +192,7 @@ async def top_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (
         "🏆Top 3 kännit\n"
-        "===============================\n"
+        "================================\n"
         f"1. {first['name'].capitalize()} *{first['BAC']:.3f}‰* ({first['drinks']:.2f} annosta) {first['day']}\n"
         f"2. {second['name'].capitalize()} *{second['BAC']:.3f}‰* ({second['drinks']:.2f} annosta) {second['day']}\n"
         f"3. {third['name'].capitalize()} *{third['BAC']:.3f}‰* ({third['drinks']:.2f} annosta) {third['day']}\n"

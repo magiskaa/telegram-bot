@@ -2,7 +2,7 @@ import html
 import json
 import logging
 import traceback
-import openai
+from openai import OpenAI
 from zoneinfo import ZoneInfo
 from telegram import Update
 from telegram.constants import ParseMode
@@ -11,22 +11,11 @@ from datetime import time as datetime_time
 from datetime import datetime
 from config.config import BOT_TOKEN, OPENAI_API, ADMIN_ID
 from bot.save_and_load import user_profiles
-from bot.job_queue import reset_drink_stats, recap, bac_update
-from bot.stats import stats, reset, personal_best, group_stats, top_3
-from bot.admin import (
-    admin, announcement_input, announcement, send_announcement, group_id, reset_top_3, send_saved_announcement, admin_stats, get_stats, admin_drinks, get_drinks, group_pb,
-    ANNOUNCEMENT, ANSWER, GET_STATS, GET_DRINKS
-)
-from bot.drinks import (
-    drink, drink_button_handler, get_drink, favorite, favorite_button_handler, forgotten_drink, forgotten_button_handler, get_forgotten_drink, 
-    get_forgotten_time, delete_drink, delete_drink_button_handler, drink_history, add_latest_drink,
-    DRINK, FORGOTTEN_TIME, FORGOTTEN_DRINK
-)
-from bot.setup import (
-    setup, get_gender, get_age, get_height, get_weight, profile, update_gender, update_age, 
-    update_height, update_weight, button_handler, favorite_drink, favorite_drink_button_handler, get_favorite,
-    GENDER, AGE, HEIGHT, WEIGHT, UPDATE_GENDER, UPDATE_AGE, UPDATE_HEIGHT, UPDATE_WEIGHT, FAVORITE
-)
+from bot.job_queue import *
+from bot.stats import *
+from bot.admin import *
+from bot.drinks import *
+from bot.setup import *
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -36,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 ASK = 1
 FIRST_ASK = True
+
+# Initialize OpenAI client
+client = OpenAI(api_key=OPENAI_API)
 
 # User commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -82,7 +74,6 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global FIRST_ASK
-    openai.api_key = OPENAI_API
     user_message = update.message.text
     user_id = str(update.message.from_user.id)
 
@@ -104,7 +95,7 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
     model = "gpt-4.1-mini"
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "user", "content": message}
@@ -205,6 +196,7 @@ def main():
         app.add_handler(CommandHandler("add_last", add_latest_drink))
         app.add_handler(CommandHandler("stats", stats))
         app.add_handler(CommandHandler("pb", personal_best))
+        app.add_handler(CommandHandler("history", history))
         app.add_handler(CommandHandler("drinks", drink_history))
         app.add_handler(CommandHandler("reset", reset))
         app.add_handler(CommandHandler("group_stats", group_stats))

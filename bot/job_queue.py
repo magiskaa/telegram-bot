@@ -1,6 +1,8 @@
 import telegram
 import time
 import random
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from telegram import Update
 from telegram.ext import ContextTypes, CallbackContext
 from bot.save_and_load import save_profiles, user_profiles
@@ -19,6 +21,14 @@ async def recap(context: CallbackContext):
     
     if len(drinkers) == 0:
         return
+
+    for drinker in drinkers:
+        drinker["history"].append({
+            "BAC": drinker["highest_BAC"],
+            "drinks": drinker["drink_count"],
+            "day": (datetime.now() - timedelta(days=1)).strftime("%d.%m.%Y"),
+            "start": datetime.fromtimestamp(profile['start_time'], tz=ZoneInfo('Europe/Helsinki')).strftime('%H:%M:%S')
+        })
     
     first = user_profiles["top_3"]["1"]
     second = user_profiles["top_3"]["2"]
@@ -67,11 +77,14 @@ async def reset_drink_stats(context: CallbackContext):
         profile["elapsed_time"] = 0
         profile["BAC"] = 0
         profile["highest_BAC"] = 0
+        profile["BAC_1_0"] = 0
+        profile["BAC_1_4"] = 0
         profile["BAC_1_7"] = 0
         profile["BAC_2_0"] = 0
         profile["BAC_2_3"] = 0
-        profile["BAC_2_7"] = 0
+        profile["BAC_2_6"] = 0
         profile["drink_history"] = []
+        profile["history"] = []
     
     save_profiles()
 
@@ -89,7 +102,7 @@ async def bac_update(context: CallbackContext):
                 profile["PB_dc"] = profile["drink_count"]
                 profile["PB_day"] = time.strftime("%d.%m.%Y")
             await top_3_update(None, context, user_id)
-            if profile["BAC"] > 1.7:
+            if profile["BAC"] > 1.0:
                 await message(None, context, user_id)
 
 # Top 3 update and message functions for bac_update
@@ -136,8 +149,22 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
     name = profile["name"].capitalize()
     bac = profile["BAC"]
 
+    MESSAGES_1_0 = [
+        f"{name} on päässy promillekerhoon!",
+    ]
+
+    MESSAGES_1_4 = [
+        f"{name_conjugation(name, 'lle')} maistuu nyt liiankin hyvin.",
+        f"{name} on ottanu muutaman rohkasuryypyn.",
+        f"{name} on kohta kaveri kaikkien kanssa.",
+        f"{name} suunnittelee jo jatkoja.",
+        f"{name} ottaa nyt väliveden.",
+    ]
+
     MESSAGES_1_7 = [
         f"{name_conjugation(name, 'lla')} menee nyt lujaa.",
+        f"{name_conjugation(name, 'lla')} hymy on leveä.",
+        f"{name} näkee nyt kaksi, ottaa yhden.",
         f"{name} ottaa nyt väliveden.",
     ]
 
@@ -149,6 +176,9 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
         f"{name_conjugation(name, 'lla')} on selkeästi nestetasapaino kohillaan.",
         f"Onkohan {name_conjugation(name, 'lla')} vielä huomen sama mp tästä juomatahdista?",
         f"{name_conjugation(name, 'lla')} on huomenna rapsakat tunnelmat.",
+        f"{name_conjugation(name, 'lle')} pieni happihyppely tekis gutaa.",
+        f"{name_conjugation(name, 'lla')} muki pysyy mutta muisti ei.",
+        f"'Yks viel' - {name}, {time.strftime('%d.%m.%Y')}"
         f"{name} ottaa nyt väliveden.",
     ]
 
@@ -160,25 +190,33 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
         f"{name} ei välttämättä muista koko iltaa, mutta me muistetaan.",
         f"{name} ei kohta enää muista omaa nimee.",
         f"{name_conjugation(name, 'lle')} nyt bileämpäri kätösiin!",
+        f"{name_conjugation(name, 'lla')} horisontti heiluu.",
+        f"{name_conjugation(name, 'lla')} menee kohta neliveto päälle.",
         f"{name} ottaa nyt väliveden.",
     ]
 
-    MESSAGES_2_7 = [
+    MESSAGES_2_6 = [
         f"{name} kuolee.",
     ]
 
-    if bac >= 1.7 and bac < 2.0 and profile["BAC_1_7"] == 0:
+    if bac >= 1.0 and bac < 1.4 and profile["BAC_1_0"] == 0:
+        profile["BAC_1_0"] = 1
+        MESSAGES = MESSAGES_1_0
+    elif bac >= 1.4 and bac < 1.7 and profile["BAC_1_4"] == 0:
+        profile["BAC_1_4"] = 1
+        MESSAGES = MESSAGES_1_4
+    elif bac >= 1.7 and bac < 2.0 and profile["BAC_1_7"] == 0:
         profile["BAC_1_7"] = 1
         MESSAGES = MESSAGES_1_7
     elif bac >= 2.0 and bac < 2.3 and profile["BAC_2_0"] == 0:
         profile["BAC_2_0"] = 1
         MESSAGES = MESSAGES_2_0
-    elif bac >= 2.3 and bac < 2.7 and profile["BAC_2_3"] == 0:
+    elif bac >= 2.3 and bac < 2.6 and profile["BAC_2_3"] == 0:
         profile["BAC_2_3"] = 1
         MESSAGES = MESSAGES_2_3
-    elif bac >= 2.7 and profile["BAC_2_7"] == 0:
-        profile["BAC_2_7"] = 1
-        MESSAGES = MESSAGES_2_7
+    elif bac >= 2.6 and profile["BAC_2_6"] == 0:
+        profile["BAC_2_6"] = 1
+        MESSAGES = MESSAGES_2_6
     else:
         return
     

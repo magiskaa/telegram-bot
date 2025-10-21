@@ -1,5 +1,5 @@
 import math
-import openai
+from openai import OpenAI
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from telegram import Update
@@ -8,6 +8,9 @@ from bot.save_and_load import save_profiles, user_profiles
 from bot.calculations import calculate_bac, calculate_peak_bac
 from bot.utils import name_conjugation, validate_admin, get_timezone, time_adjustment
 from config.config import GROUP_ID, ADMIN_ID, OPENAI_API, ANNOUNCEMENT_TEXT
+
+# Initialize OpenAI client (v1+ SDK)
+client = OpenAI(api_key=OPENAI_API)
 
 ANNOUNCEMENT, ANSWER = range(2)
 announcement_text = ""
@@ -77,10 +80,9 @@ async def announcement_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global announcement_text
-    openai.api_key = OPENAI_API
     announcement_details = update.message.text
     model = "gpt-4.1-mini"
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "user", "content": ANNOUNCEMENT_TEXT + f"Tarkemmat tiedot tulevat tässä: {announcement_details}"}

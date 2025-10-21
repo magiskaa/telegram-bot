@@ -15,6 +15,8 @@ def name_conjugation(name, ending):
             return name[:-2] + "olle"
         elif name.endswith("tti"):
             return name[:-2] + "ille"
+        elif name.endswith("an"):
+            return name + "ille"
         else:
             return name + "lle"
     elif ending == "lla":
@@ -24,6 +26,8 @@ def name_conjugation(name, ending):
             return name[:-2] + "illa"
         elif name.endswith("ti") or name.endswith("ni"):
             return name + "llä"
+        elif name.endswith("an"):
+            return name + "illa"
         else:
             return name + "lla"
     elif ending == "lta":
@@ -33,6 +37,8 @@ def name_conjugation(name, ending):
             return name[:-2] + "ilta"
         elif name.endswith("ti") or name.endswith("ni"):
             return name + "ltä"
+        elif name.endswith("an"):
+            return name + "ilta"
         else:
             return name + "lta"
     elif ending == "n":
@@ -40,6 +46,8 @@ def name_conjugation(name, ending):
             return name[:-2] + "on"
         elif name.endswith("tti"):
             return name[:-2] + "in"
+        elif name.endswith("an"):
+            return name + "in"
         else:
             return name + "n"
     else:

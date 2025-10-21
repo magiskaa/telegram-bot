@@ -2,6 +2,10 @@
 
 A comprehensive Telegram bot that calculates and tracks Blood Alcohol Content (BAC) for individuals and groups in real-time. The bot uses scientifically-based calculations considering user-specific factors like gender, age, height, and weight to provide accurate BAC estimates and personalized drinking statistics.
 
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![python-telegram-bot](https://img.shields.io/badge/python--telegram--bot-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
+
 ## Table of Contents
 
 - [Installation](#installation)
