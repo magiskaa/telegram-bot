@@ -142,7 +142,7 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{date}\n"
                 f"Korkein BAC: *{bac:.3f}‰*\n"
                 f"Joit *{drinks:.2f}* annosta\n"
-                f"Aloitit klo *{start}*\n"
+                f"Aloitit klo *{start}*\n\n"
             )
 
         await update.message.reply_text(history_text, parse_mode="Markdown")

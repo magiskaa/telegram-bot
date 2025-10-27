@@ -27,7 +27,7 @@ async def recap(context: CallbackContext):
             "BAC": drinker["highest_BAC"],
             "drinks": drinker["drink_count"],
             "day": (datetime.now() - timedelta(days=1)).strftime("%d.%m.%Y"),
-            "start": datetime.fromtimestamp(profile['start_time'], tz=ZoneInfo('Europe/Helsinki')).strftime('%H:%M:%S')
+            "start": datetime.fromtimestamp(drinker['start_time'], tz=ZoneInfo('Europe/Helsinki')).strftime('%H:%M:%S')
         })
     
     first = user_profiles["top_3"]["1"]
@@ -84,7 +84,6 @@ async def reset_drink_stats(context: CallbackContext):
         profile["BAC_2_3"] = 0
         profile["BAC_2_6"] = 0
         profile["drink_history"] = []
-        profile["history"] = []
     
     save_profiles()
 
