@@ -2,13 +2,14 @@ import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from bot.save_and_load import save_profiles, user_profiles
-from bot.utils import name_conjugation, validate_profile, get_timezone, time_adjustment
-from bot.calculations import calculate_alcohol, calculate_bac, recalculate_highest_bac
+from bot.utils import *
+from bot.calculations import *
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 
 DRINK = 1
 FORGOTTEN_DRINK, FORGOTTEN_TIME = range(2)
+TARGET_BAC = 1
 
 COMMON_DRINKS = [
     ("🍺Olut 0.33l, 4.2%", 0.33, 4.2),
@@ -17,9 +18,65 @@ COMMON_DRINKS = [
     ("🐙Lonkero 0.5l, 5.5%", 0.5, 5.5),
     ("🍐Siideri 0.33l, 4.7%", 0.33, 4.7),
     ("🫧Seltzer 0.33l, 4.5%", 0.33, 4.5),
-    ("🍷Viini 0.12l, 13%", 0.12, 13),
+    ("🍷Viini 0.16l, 12%", 0.12, 13),
     ("🥃Viina 0.04l, 40%", 0.04, 40)
 ]
+
+# Targetbac command
+async def target_bac(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await validate_profile(update, context)
+    if result:
+        return ConversationHandler.END
+    
+    await update.message.reply_text("Mikä on tavoitepromillesi ja aika jolloin haluat saavuttaa kyseisen kännin? (esim. 1.5 3 -> 1.5 promillea 3 tunnin päästä)")
+    return TARGET_BAC
+
+async def get_target_bac_and_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        user_id = str(update.message.from_user.id)
+        text = update.message.text.strip().replace(",", ".")
+        parts = text.split()
+
+        if len(parts) < 2:
+            raise ValueError("Syötä vähintään kaksi lukua (esim. 1.5 3).")
+
+        target_bac = float(parts[0])
+        target_time = float(parts[1])
+
+        if target_bac <= 0:
+            raise ValueError("Tavoite-BAC täytyy olla positiivinen.")
+        if target_time <= 0:
+            raise ValueError("Ajan täytyy olla positiivinen.")
+
+        servings_needed = calculate_target_bac_servings(user_id, target_bac, target_time)
+
+        beer_servings = calculate_alcohol(0.33, 4.2)
+        long_drink_servings = calculate_alcohol(0.5, 5.5)
+        cider_servings = calculate_alcohol(0.33, 4.7)
+        wine_servings = calculate_alcohol(0.16, 12)
+        kossu_servings = calculate_alcohol(0.04, 38)
+
+        beer_count = servings_needed / beer_servings
+        long_drink_count = servings_needed / long_drink_servings
+        cider_count = servings_needed / cider_servings
+        wine_count = servings_needed / wine_servings
+        kossu_count = servings_needed / kossu_servings
+
+        await update.message.reply_text(
+            "📈 Kännitavoite\n"
+            f"Tavoiteesi on {target_bac:.3f}‰ {target_time}h päästä.\n"
+            "Tarvittava määrä kutakin juomaa tavoitekännin saavuttamiseen:\n"
+            f"  • ≈ {beer_count:.2f} x 🍺0.33l, 4.2%\n"
+            f"  • ≈ {long_drink_count:.2f} x 🐙0.5l, 5.5%\n"
+            f"  • ≈ {cider_count:.2f} x 🍐0.33l, 4.7%\n"
+            f"  • ≈ {wine_count:.2f} x 🍷0.16l, 12.0%\n"
+            f"  • ≈ {kossu_count:.2f} x 🥃0.04l, 38.0%\n"
+        )
+        return ConversationHandler.END
+
+    except ValueError as e:
+        await update.message.reply_text(f"⚠️Virheellinen syöte: {e}")
+        return TARGET_BAC
 
 # Drink command
 async def drink(update: Update, context: ContextTypes.DEFAULT_TYPE):

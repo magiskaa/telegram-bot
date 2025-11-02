@@ -53,7 +53,9 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/stats - Katsele omia tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
         "/drinks - Katsele omaa tämän iltaista juomahistoriaa.\n"
         "/group_stats - Katsele ryhmän tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
+        "/targetbac - Suunnittele kännisi syöttämällä tavoitepromillesi ja ajan, joilloin haluat sen saavuttaa."
         "/pb - Katsele omaa henkilökohtaista ennätystä.\n"
+        "/history - Katsele omaa kännihistoriaa.\n"
         "/top3 - Katsele Top 3 kännit -listaa. Lähettää listan sinne missä käytät komentoa.\n"
         "/forgotten - Lisää juoma jonka olet unohtanut lisätä aiemmin. Kirjoita ensiksi juoman koko ja prosentit, ja sen jälkeen juoman aloitusaika."
         "/profile - Katsele profiiliasi ja muokkaa tietojasi tarvittaessa.\n"
@@ -189,6 +191,15 @@ def main():
         )
         app.add_handler(ask_conv_handler)
 
+        target_conv_handler = ConversationHandler(
+            entry_points=[CommandHandler("targetbac", target_bac)],
+            states={
+                TARGET_BAC: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_target_bac_and_time)]
+            },
+            fallbacks=[CommandHandler("cancel", cancel)]
+        )
+        app.add_handler(target_conv_handler)
+
         # User commands
         app.add_handler(CommandHandler("profile", profile))
         app.add_handler(CommandHandler("favorite", favorite))
@@ -245,8 +256,8 @@ def main():
 
         # Job queue
         job_queue = app.job_queue
-        job_queue.run_daily(recap, datetime_time(hour=9, minute=0)) # Timezone is set to UTC so this is 12:00 in GMT+3
-        job_queue.run_daily(reset_drink_stats, datetime_time(hour=9, minute=0, second=2)) # This is 12:00.02
+        job_queue.run_daily(recap, datetime_time(hour=12, minute=0, tzinfo=ZoneInfo('Europe/Helsinki')))
+        job_queue.run_daily(reset_drink_stats, datetime_time(hour=12, minute=0, second=2, tzinfo=ZoneInfo('Europe/Helsinki')))
         job_queue.run_repeating(bac_update, interval=30, first=0)
 
         app.run_polling()

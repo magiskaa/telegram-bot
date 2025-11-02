@@ -2,7 +2,7 @@ import numpy as np
 from telegram import Update
 from telegram.ext import ContextTypes
 from bot.save_and_load import save_profiles, user_profiles
-from bot.utils import get_timezone, get_TBW, get_elim_rate, get_BAC, get_elim_time, get_absorption
+from bot.utils import *
 
 # Calculate the number of servings in a drink
 def calculate_alcohol(vol, perc):
@@ -32,10 +32,10 @@ async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user
 
     bac = get_BAC(user_id, absorbed_grams, r)
 
-    grams = get_elim_rate(user_id)
+    grams_per_kg = get_elim_rate(user_id)
     
-    grams_per_kg = grams * weight
-    bac_elim = get_BAC(user_id, grams_per_kg, r)
+    grams = grams_per_kg * weight
+    bac_elim = get_BAC(user_id, grams, r)
 
     bac -= bac_elim * elimination_time
     bac = max(0, bac)
@@ -47,6 +47,23 @@ async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user
     else:
         profile["BAC"] = bac * 10
         save_profiles()
+
+# Calculate servings needed for submitted target bac
+def calculate_target_bac_servings(user_id, target_bac, target_time):
+    profile = user_profiles[user_id]
+    drinking_time = target_time
+    weight = profile["weight"]
+    r = get_TBW(user_id)
+
+    absorbed_grams = get_absorbed_grams(user_id, target_bac, r)
+
+    grams_per_kg = get_elim_rate(user_id)
+    grams = grams_per_kg * weight
+    eliminated_grams = grams * drinking_time
+
+    target_servings = (absorbed_grams + eliminated_grams) / 12
+
+    return target_servings
 
 # Calculate the total amount of alcohol absorbed
 async def calculate_absorption(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):

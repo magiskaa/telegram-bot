@@ -149,6 +149,12 @@ def get_BAC(user_id, grams, r):
 
     return grams / (weight*1000 * r) * 100
 
+def get_absorbed_grams(user_id, bac, r):
+    profile = user_profiles[user_id]
+    weight = profile["weight"]
+
+    return bac * weight * r
+
 def get_elim_time(hours_since_start):
     if hours_since_start < 0.6:
         elimination_factor = hours_since_start / 0.6
