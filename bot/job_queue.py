@@ -150,6 +150,15 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
 
     MESSAGES_1_0 = [
         f"{name} on päässy promillekerhoon!",
+        f"{name} on saanut pikku nousut.",
+        f"{name_conjugation(name, 'lla')} alkaa olla hyvä pössis.",
+        f"{name} on päässyt viinan makuun.",
+        f"{name_conjugation(name, 'lle')} on viinapiru iskenyt",
+        f"{name_conjugation(name, 'lla')} jutut paranee kulauksen myötä.",
+        f"{name_conjugation(name, 'lla')} on hööki päällä.",
+        f"{name} ottaa nyt väliveden.",
+        f"{name} muistaa myös väliveden (ehkä).",
+        f"{name} pitää nyt pienen välivesibreikin."
     ]
 
     MESSAGES_1_4 = [
@@ -157,14 +166,20 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
         f"{name} on ottanu muutaman rohkasuryypyn.",
         f"{name} on kohta kaveri kaikkien kanssa.",
         f"{name} suunnittelee jo jatkoja.",
+        f"{name} nauraa jo omille jutuilleen",
         f"{name} ottaa nyt väliveden.",
+        f"{name} muistaa myös väliveden (ehkä).",
+        f"{name} pitää nyt pienen välivesibreikin."
     ]
 
     MESSAGES_1_7 = [
         f"{name_conjugation(name, 'lla')} menee nyt lujaa.",
         f"{name_conjugation(name, 'lla')} hymy on leveä.",
         f"{name} näkee nyt kaksi, ottaa yhden.",
+        f"{name} vetää kyllä vahvaa iltaa.",
         f"{name} ottaa nyt väliveden.",
+        f"{name} muistaa myös väliveden (ehkä).",
+        f"{name} pitää nyt pienen välivesibreikin."
     ]
 
     MESSAGES_2_0 = [
@@ -177,8 +192,15 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
         f"{name_conjugation(name, 'lla')} on huomenna rapsakat tunnelmat.",
         f"{name_conjugation(name, 'lle')} pieni happihyppely tekis gutaa.",
         f"{name_conjugation(name, 'lla')} muki pysyy mutta muisti ei.",
-        f"'Yks viel' - {name}, {time.strftime('%d.%m.%Y')}"
+        f"'Yks viel' - {name}, {time.strftime('%d.%m.%Y')}",
+        f"{name_conjugation(name, 'lla')} on legendaarinen ilta kehkeytymässä.",
+        f"{name} näkee tuplana, valitsee keskimmäisen.",
         f"{name} ottaa nyt väliveden.",
+        f"{name} muistaa myös väliveden (ehkä).",
+        f"{name} pitää nyt pienen välivesibreikin.",
+        f"{name} ottaa nyt väliveden, koska fiksu.",
+        f"{name} tarvitsee peiton, pitsan ja paussin.",
+        f"{name} tarvitsee nyt kaverin kainaloon ja vettä."
     ]
 
     MESSAGES_2_3 = [
@@ -192,10 +214,15 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
         f"{name_conjugation(name, 'lla')} horisontti heiluu.",
         f"{name_conjugation(name, 'lla')} menee kohta neliveto päälle.",
         f"{name} ottaa nyt väliveden.",
+        f"{name} muistaa myös väliveden (ehkä).",
+        f"{name} pitää nyt pienen välivesibreikin.",
+        f"{name} ottaa nyt väliveden, koska fiksu.",
+        f"{name} tarvitsee peiton, pitsan ja paussin.",
+        f"{name} tarvitsee nyt kaverin kainaloon ja vettä."
     ]
 
     MESSAGES_2_6 = [
-        f"{name} kuolee.",
+        f"{name} kuolee."
     ]
 
     if bac >= 1.0 and bac < 1.4 and profile["BAC_1_0"] == 0:
