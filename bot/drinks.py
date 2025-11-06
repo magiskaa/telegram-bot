@@ -45,8 +45,10 @@ async def get_target_bac_and_time(update: Update, context: ContextTypes.DEFAULT_
 
         if target_bac <= 0:
             raise ValueError("Tavoite-BAC täytyy olla positiivinen.")
-        if target_time <= 0:
-            raise ValueError("Ajan täytyy olla positiivinen.")
+        if target_bac > 3:
+            raise ValueError("Ethän suunnittele yli 3 promillen känniä🥺.")
+        if target_time <= 0 or target_time > 12:
+            raise ValueError("Ajan täytyy olla positiivinen ja alle 12 tuntia.")
 
         servings_needed = calculate_target_bac_servings(user_id, target_bac, target_time)
 
@@ -64,6 +66,7 @@ async def get_target_bac_and_time(update: Update, context: ContextTypes.DEFAULT_
 
         await update.message.reply_text(
             "📈 Kännitavoite\n"
+            "===========================\n"
             f"Tavoiteesi on {target_bac:.3f}‰ {target_time}h päästä.\n"
             "Tarvittava määrä kutakin juomaa tavoitekännin saavuttamiseen:\n"
             f"  • ≈ {beer_count:.2f} x 🍺0.33l, 4.2%\n"
@@ -75,7 +78,10 @@ async def get_target_bac_and_time(update: Update, context: ContextTypes.DEFAULT_
         return ConversationHandler.END
 
     except ValueError as e:
-        await update.message.reply_text(f"⚠️Virheellinen syöte: {e}")
+        if "Ethän suunnittele" in str(e):
+            await update.message.reply_text(f"{e}")
+        else:
+            await update.message.reply_text(f"⚠️Virheellinen syöte: {e}")
         return TARGET_BAC
 
 # Drink command
