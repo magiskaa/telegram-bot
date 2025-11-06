@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 DRINK = 1
 FORGOTTEN_DRINK, FORGOTTEN_TIME = range(2)
 TARGET_BAC = 1
+MIXED_DRINK = 1
 
 COMMON_DRINKS = [
     ("🍺Olut 0.33l, 4.2%", 0.33, 4.2),
@@ -21,6 +22,89 @@ COMMON_DRINKS = [
     ("🍷Viini 0.16l, 12%", 0.12, 13),
     ("🥃Viina 0.04l, 40%", 0.04, 40)
 ]
+
+# Mixed drink command
+async def mixed_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await validate_profile(update, context)
+    if result:
+        return ConversationHandler.END
+    
+    await update.message.reply_text(
+        "Kirjoita paljonko miksasit kutakin: "
+        "(esim. 0.04 38 0.2, eli yksi shotti kossua ja 2 desiä vissyä. "
+        "Jos miksasit kahta alkoholijuomaa, niin kirjoita esim.: 0.04 38 0.33 4.7)"
+    )
+    return MIXED_DRINK
+
+async def get_mixed_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        drink = update.message.text.strip().replace(",", ".")
+        parts = drink.split()
+
+        size = float(parts[0])
+        percentage = float(parts[1])
+        mixer_size = float(parts[2])
+
+        if len(parts) > 3:
+            mixer_perc = float(parts[3])
+            if mixer_perc <= 0 or mixer_perc > 100:
+                raise ValueError("Mikserin prosentit ei voi olla 0, negatiivinen tai yli 100.")
+        else:
+            mixer_perc = None
+
+        if size <= 0 or mixer_size <= 0:
+            raise ValueError("Koko ei voi olla 0 tai negatiivinen.")
+        elif percentage <= 0 or percentage > 100:
+            raise ValueError("Prosentit ei voi olla 0, negatiivinen tai yli 100.")
+        
+        user_id = str(update.message.from_user.id)
+        profile = user_profiles[user_id]
+
+        if mixer_perc is not None:
+            drink_size = size + mixer_size
+            drink_perc = percentage * (size / drink_size) + mixer_perc * (mixer_size / drink_size)
+            servings = calculate_alcohol(drink_size, drink_perc)
+        else:
+            drink_size = size + mixer_size
+            drink_perc = percentage * (size / drink_size)
+            servings = calculate_alcohol(drink_size, drink_perc)
+
+        if servings > 4:
+            raise ValueError("Tosson aika paljon viinaa. Ettet kai vaan ole syöttänyt juoman tietoja väärin?")
+        
+        profile["drink_count"] += servings
+
+        current_time = get_timezone()
+        time_adj = time_adjustment(drink_size)
+
+        profile["drink_history"].append({
+            "size": drink_size,
+            "percentage": round(drink_perc, 2),
+            "servings": servings,
+            "timestamp": current_time - time_adj
+        })
+        save_profiles()
+
+        if profile["BAC"] == 0 and profile["start_time"] != 0:
+            profile["second_start"] = current_time - time_adj
+
+        if profile["start_time"] == 0:
+            profile["start_time"] = current_time - time_adj
+
+        await calculate_bac(update, context, user_id)
+        
+        await update.message.reply_text(f"🍺Lisätty {servings} annosta.\nBAC: *{profile['BAC']:.3f}‰*", parse_mode="Markdown")
+        
+        return ConversationHandler.END
+
+    except ValueError as e:
+        if "Koko ei" in str(e) or "Prosentit ei" in str(e):
+            await update.message.reply_text(f"⚠️Virheellinen syöte. {e}")
+        elif "Tosson aika" in str(e):
+            await update.message.reply_text(f"⚠️{e}")
+        else:
+            await update.message.reply_text("⚠️Virheellinen syöte. Kirjoita uudestaan paljonko miksasit kutakin: (esim. 0.04 38 0.2, tai 0.04 38 0.33 4.7)")
+        return MIXED_DRINK
 
 # Targetbac command
 async def target_bac(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -35,13 +119,7 @@ async def get_target_bac_and_time(update: Update, context: ContextTypes.DEFAULT_
     try:
         user_id = str(update.message.from_user.id)
         text = update.message.text.strip().replace(",", ".")
-        parts = text.split()
-
-        if len(parts) < 2:
-            raise ValueError("Syötä vähintään kaksi lukua (esim. 1.5 3).")
-
-        target_bac = float(parts[0])
-        target_time = float(parts[1])
+        target_bac, target_time = map(float, text.split())
 
         if target_bac <= 0:
             raise ValueError("Tavoite-BAC täytyy olla positiivinen.")
@@ -78,10 +156,12 @@ async def get_target_bac_and_time(update: Update, context: ContextTypes.DEFAULT_
         return ConversationHandler.END
 
     except ValueError as e:
-        if "Ethän suunnittele" in str(e):
+        if "Tavoite-BAC" in str(e) or "Ajan täytyy" in str(e):
+            await update.message.reply_text(f"⚠️Virheellinen syöte. {e}")
+        elif "Ethän suunnittele" in str(e):
             await update.message.reply_text(f"{e}")
         else:
-            await update.message.reply_text(f"⚠️Virheellinen syöte: {e}")
+            await update.message.reply_text(f"⚠️Virheellinen syöte. Syötä tavoitepromillesi ja aika jolloin haluat saavuttaa kyseisen kännin uudestaan:")
         return TARGET_BAC
 
 # Drink command

@@ -50,6 +50,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "\n/drink - Syötä vapaavalintainen juoma. Ensiksi juoman koko ja sen jälkeen prosentit. Voit vähentää juoman asettamalla juoman koon negatiiviseksi.\n"
         "/favorite - Syötä lempijuomasi.\n"
         "/add_last - Syötä viimeisin lisäämäsi juoma.\n"
+        "/mixed - Syötä jokin miksattu juoma kirjoittamalla alkoholipitoisen juoman koko ja prosentit ja sen jälkeen mikserin koko. Jos mikseri on myös alkoholipitoinen niin kirjoita mikserinkin prosentit sen koon jälkeen."
         "/stats - Katsele omia tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
         "/drinks - Katsele omaa tämän iltaista juomahistoriaa.\n"
         "/group_stats - Katsele ryhmän tämän iltaisia juomatilastoja. Lähettää tilastot siihen chattiin missä käytät komentoa.\n"
@@ -199,6 +200,15 @@ def main():
             fallbacks=[CommandHandler("cancel", cancel)]
         )
         app.add_handler(target_conv_handler)
+
+        mixed_drink_conv_handler = ConversationHandler(
+            entry_points=[CommandHandler("mixed", mixed_drink)],
+            states={
+                MIXED_DRINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_mixed_drink)]
+            },
+            fallbacks=[CommandHandler("cancel", cancel)]
+        )
+        app.add_handler(mixed_drink_conv_handler)
 
         # User commands
         app.add_handler(CommandHandler("profile", profile))
