@@ -78,7 +78,7 @@ async def get_mixed_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         time_adj = time_adjustment(drink_size)
 
         profile["drink_history"].append({
-            "size": drink_size,
+            "size": round(drink_size, 2),
             "percentage": round(drink_perc, 2),
             "servings": servings,
             "timestamp": current_time - time_adj

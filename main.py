@@ -2,6 +2,8 @@ import html
 import json
 import logging
 import traceback
+import threading
+from flask import Flask, request
 from openai import OpenAI
 from zoneinfo import ZoneInfo
 from telegram import Update
@@ -127,9 +129,35 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(chat_id=ADMIN_ID, text=message, parse_mode=ParseMode.HTML)
 
+def create_flask():
+    flask = Flask(__name__)
+
+    @flask.route("/bac")
+    def bac():
+        user_id = request.args.get("id")
+
+        if not user_id:
+            return "missing id", 400
+
+        with open("data/user_profiles.json", "r") as f:
+            data = json.load(f)
+
+        if user_id not in data:
+            return "user not found", 404
+
+        return str(data[user_id]["BAC"])
+    
+    return flask
+
+def run_flask():
+    flask = create_flask()
+    flask.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
 
 def main():
     try:
+        flask_thread = threading.Thread(target=run_flask, daemon=True)
+        flask_thread.start()
+
         app = ApplicationBuilder().token(BOT_TOKEN).build()
 
         app.add_handler(CommandHandler("start", start))
@@ -273,6 +301,8 @@ def main():
         app.run_polling()
     except Exception as e:
         print(f"Error in main: {e}")
+    except KeyboardInterrupt:
+        print("Shutting down...")
 
 
 if __name__ == "__main__":
