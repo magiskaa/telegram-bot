@@ -93,7 +93,7 @@ async def bac_update(context: CallbackContext):
             continue
         else:
             profile = user_profiles[user_id]
-            await calculate_bac(None, context, user_id)
+            calculate_bac(user_id)
             if profile["BAC"] > profile["highest_BAC"]:
                 profile["highest_BAC"] = profile["BAC"]
             if profile["BAC"] > profile["PB_BAC"]:

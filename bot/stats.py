@@ -23,7 +23,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Et ole vielä aloittanut juomista.")
         return
     
-    bac_elim = await calculate_bac(update, context, user_id, noSaving=True)
+    bac_elim = calculate_bac(user_id, update, context, noSaving=True)
 
     bac_max = calculate_peak_bac(user_id)
 
@@ -150,14 +150,14 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Group stats command
 async def group_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     drinkers = []
-    for user in user_profiles:
-        if user == "top_3":
+    for user_id in user_profiles:
+        if user_id == "top_3":
             continue
-        profile = user_profiles[user]
+        profile = user_profiles[user_id]
         if profile["drink_count"] == 0:
             continue
         else:
-            await calculate_bac(update, context, user)
+            calculate_bac(user_id)
             drinkers.append(profile)
 
     leaderboard = ""

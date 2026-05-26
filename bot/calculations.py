@@ -11,7 +11,7 @@ def calculate_alcohol(vol, perc):
     return round(servings, 2)
 
 # Calculate the users BAC
-async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id, noSaving=False):
+def calculate_bac(user_id, update: Update = None, context: ContextTypes.DEFAULT_TYPE = None, noSaving=False):
     profile = user_profiles[user_id]
 
     if profile["second_start"] != 0:
@@ -26,7 +26,7 @@ async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user
 
     r = get_TBW(user_id)
 
-    absorbed_grams = await calculate_absorption(update, context, user_id)
+    absorbed_grams = calculate_absorption(user_id)
     
     elimination_time = get_elim_time(drinking_time)
 
@@ -42,11 +42,13 @@ async def calculate_bac(update: Update, context: ContextTypes.DEFAULT_TYPE, user
 
     if noSaving:
         profile["BAC"] = bac
-        context.user_data["max_BAC"] = profile["drink_count"] * get_BAC(user_id, 12, r)
+        if context is not None:
+            context.user_data["max_BAC"] = profile["drink_count"] * get_BAC(user_id, 12, r)
         return bac_elim
     else:
         profile["BAC"] = bac * 10
         save_profiles()
+        return profile["BAC"]
 
 # Calculate servings needed for submitted target bac
 def calculate_target_bac_servings(user_id, target_bac, target_time):
@@ -66,7 +68,7 @@ def calculate_target_bac_servings(user_id, target_bac, target_time):
     return target_servings
 
 # Calculate the total amount of alcohol absorbed
-async def calculate_absorption(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id):
+def calculate_absorption(user_id):
     profile = user_profiles[user_id]
     current_time = get_timezone()
 

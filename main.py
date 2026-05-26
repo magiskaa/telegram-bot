@@ -3,6 +3,7 @@ import json
 import logging
 import traceback
 import threading
+import asyncio
 from flask import Flask, request
 from openai import OpenAI
 from zoneinfo import ZoneInfo
@@ -18,6 +19,8 @@ from bot.stats import *
 from bot.admin import *
 from bot.drinks import *
 from bot.setup import *
+from bot.calculations import *
+from bot.utils import *
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -139,26 +142,65 @@ def create_flask():
         if not user_id:
             return "missing id", 400
 
-        with open("data/user_profiles.json", "r") as f:
-            data = json.load(f)
-
-        if user_id not in data:
+        if user_id not in user_profiles:
             return "user not found", 404
 
-        return str(data[user_id]["BAC"])
+        return str(user_profiles[user_id]["BAC"])
+    
+    @flask.route("/drink")
+    def drink():
+        user_id = request.args.get("id")
+
+        if not user_id:
+            return "missing id", 400
+        
+        profile = user_profiles[user_id]
+        
+        size = 0.33
+        percentage = 4.2
+        servings = calculate_alcohol(size, percentage)
+        profile["drink_count"] += servings
+
+        current_time = get_timezone()
+        time_adj = time_adjustment(size)
+
+        profile["drink_history"].append({
+            "size": size,
+            "percentage": percentage,
+            "servings": servings,
+            "timestamp": current_time - time_adj
+        })
+        save_profiles()
+
+        if profile["BAC"] == 0 and profile["start_time"] != 0:
+            profile["second_start"] = current_time - time_adj
+
+        if profile["start_time"] == 0:
+            profile["start_time"] = current_time - time_adj
+
+        calculate_bac(user_id)
+
+        asyncio.run_coroutine_threadsafe(
+            app.bot.send_message(
+                chat_id=user_id,
+                text=f"🍺 Lisätty {servings} annosta.\nBAC: *{profile['BAC']:.3f}‰*",
+                parse_mode="Markdown"
+            ),
+            telegram_loop
+        )
+
+        return str(profile["BAC"])
     
     return flask
 
 def run_flask():
     flask = create_flask()
-    flask.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+    flask.run(host="0.0.0.0", port=6000, debug=False, use_reloader=False)
 
 def main():
     try:
         flask_thread = threading.Thread(target=run_flask, daemon=True)
         flask_thread.start()
-
-        app = ApplicationBuilder().token(BOT_TOKEN).build()
 
         app.add_handler(CommandHandler("start", start))
 
@@ -305,5 +347,13 @@ def main():
         print("Shutting down...")
 
 
+async def post_init(app):
+    global telegram_loop
+    telegram_loop = asyncio.get_running_loop()
+
 if __name__ == "__main__":
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    telegram_loop = None
+    app.post_init = post_init
+
     main()

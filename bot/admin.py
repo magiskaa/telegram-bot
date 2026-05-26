@@ -157,7 +157,7 @@ async def show_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, profile
         await context.bot.send_message(chat_id=ADMIN_ID, text=f"{profile['name']} ei ole vielä aloittanut juomista.")
         return ConversationHandler.END
     
-    bac_elim = await calculate_bac(update, context, user_id, noSaving=True)
+    bac_elim = calculate_bac(user_id, update, context, noSaving=True)
 
     bac_max = calculate_peak_bac(user_id)
 

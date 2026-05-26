@@ -91,7 +91,7 @@ async def get_mixed_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if profile["start_time"] == 0:
             profile["start_time"] = current_time - time_adj
 
-        await calculate_bac(update, context, user_id)
+        calculate_bac(user_id)
         
         await update.message.reply_text(f"🍺Lisätty {servings} annosta.\nBAC: *{profile['BAC']:.3f}‰*", parse_mode="Markdown")
         
@@ -249,7 +249,7 @@ async def select_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if profile["start_time"] == 0:
         profile["start_time"] = current_time - time_adj
 
-    await calculate_bac(update, context, user_id)
+    calculate_bac(user_id)
 
     await query.edit_message_text(
         f"🍺Lisätty {servings} annosta.\nBAC: *{profile['BAC']:.3f}‰*",
@@ -293,7 +293,7 @@ async def get_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if profile["start_time"] == 0:
             profile["start_time"] = current_time - time_adj
 
-        await calculate_bac(update, context, user_id)
+        calculate_bac(user_id)
         
         await update.message.reply_text(f"🍺Lisätty {servings} annosta.\nBAC: *{profile['BAC']:.3f}‰*", parse_mode="Markdown")
         
@@ -381,7 +381,7 @@ async def favorite_button_handler(update: Update, context: ContextTypes.DEFAULT_
         if profile["start_time"] == 0:
             profile["start_time"] = current_time - time_adj
 
-        await calculate_bac(update, context, user_id)
+        calculate_bac(user_id)
 
         await query.edit_message_text(
             f"😋{drink['name']} +1 ({servings} annosta).\n"
@@ -518,7 +518,7 @@ async def get_forgotten_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     save_profiles()
 
-    await calculate_bac(update, context, user_id)
+    calculate_bac(user_id)
 
     await update.message.reply_text(
         f"🤔Lisätty unohtunut juoma: {context.user_data['forgotten_size']}l "
@@ -591,7 +591,7 @@ async def delete_drink_button_handler(update: Update, context: ContextTypes.DEFA
             
             profile["drink_count"] -= servings
             recalculate_highest_bac(user_id, drink)
-            await calculate_bac(update, context, user_id)
+            calculate_bac(user_id)
             await query.edit_message_text(
                 f"⏏️Poistettu juoma:\n{index+1}. *{drink['size']}l* *{drink['percentage']}%* ({servings} annosta).\n"
                 f"Juoman lopetus: {datetime.fromtimestamp(drink['timestamp'], tz=ZoneInfo('Europe/Helsinki')).strftime('%H:%M:%S')}\n",
@@ -659,7 +659,7 @@ async def add_latest_drink(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     save_profiles()
 
-    await calculate_bac(update, context, user_id)
+    calculate_bac(user_id)
 
     await update.message.reply_text(
         f"⏮️Viimeisin juoma lisätty ({latest_drink['servings']} annosta).\n"
